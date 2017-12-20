@@ -1,5 +1,4 @@
 # Author: James Foster
-# Author email: jmfoster@gmail.com
 
 ## Load packages
 require(data.table)
@@ -12,7 +11,7 @@ setwd('~/workspace/assett/shared/') #set working directory to folder containing 
 D1 = read.csv("./data/BERI.csv", header=TRUE); nrow(D1) # import BERI data
 D2 = read.csv("./data/COPUS.csv", header=TRUE); nrow(D2) # import COPUS data
 
-# Pull out an individual seat number, if seatNum > -1
+# Pull out an individual seat number from BERI, if seatNum > -1
 seatNum = -1
 if(seatNum > -1) {
   D1 = D1[startsWith(as.character(D1$Event), "9"),]
