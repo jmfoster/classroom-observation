@@ -1,0 +1,26 @@
+Code_Name,Event,Code
+Listening ,Student-L,L
+Answer Question ,Student-AnQ,AnQ
+Asking ,Student-SQ,SQ
+Whole Class ,Student-WC,WC
+Presentation ,Student-SP,SP
+Thinking ,Student-Ind,Ind
+Clicker ,Student-CG,CG
+Worksheet ,Student-WG,WG
+Other Group ,Student-OG,OG
+Prediction ,Student-Prd,Prd
+Test/Quiz ,Student-T/Q,T/Q
+Waiting ,Student-W,W
+Other ,Student-Other,O
+Lecturing ,Instructor-Lec,Lec
+Writing ,Instructor-RtW,RtW
+Demo/Video ,Instructor-DV,DV
+Follow Up ,Instructor-FUp,FUp
+Pose Question ,Instructor-PQ,PQ
+Clicker Question ,Instructor-CQ,CQ
+Answer Question ,Instructor-AnQ,AnQ
+Moving/Guiding ,Instructor-MG,MG
+One on One ,Instructor-1o1,1o1
+Administration ,Instructor-Adm,Adm
+Waiting ,Instructor-W,W
+Other ,Instructor-O,O
