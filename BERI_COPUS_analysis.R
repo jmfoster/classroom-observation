@@ -86,7 +86,7 @@ aggregate_data_beri = function(D)
 beri = aggregate_data_beri(D1); nrow(D2)
 
 #--------------------------------- Compile Individual Coder Data (COPUS) ---------------------------------
-copus_codes = read.csv("/Users/jmf/workspace/assett/BERI/combined BERI COPUS/copus_codes.csv", header=T)
+copus_codes = read.csv("./copus_codes.csv", header=T)
 aggregate_data_copus = function(D)
 {
   #split up events into Instructor vs. Student and Code, and merge with Code_Names from file
