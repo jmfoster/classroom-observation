@@ -1,25 +1,59 @@
 ## Load packages
-require(irr)
-require(tidyr)
-require(lubridate)
-require(data.table)
-require(ggplot2)
-require(plotly)
-require(gridExtra)
-require(grid)
-require(datetime)
-require(magrittr)
+# require(irr)
+# require(tidyr)
+# require(lubridate)
+# require(data.table)
+# require(ggplot2)
+# require(plotly)
+# require(gridExtra)
+# require(grid)
+# require(datetime)
+# require(magrittr)
 #require(ReporteRs)
-rm(list=ls()) # clear environment
 
-working_dir_filepath = '~/workspace/assett/BERI/combined BERI COPUS/Pathway to Space'
+# Clear environment
+rm(list=ls()) # unload/detach all variables
+# unload/detach all session packages
+lapply(paste('package:',names(sessionInfo()$otherPkgs),sep=""),detach,character.only=TRUE,unload=TRUE)
+
+# install required packages if not already installed
+required_packages = c('data.table', 'ggplot2', 'grid', 'magrittr', 'dplyr')
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(required_packages, character.only=T)
+
 # Set this working_dir_filepath variable to the instructor's folder. 
 # Within the instructor's folder, put BERI and COPUS observation .csv's in subfolders called BERI and COPUS.
-show_subtitles = T
+working_dir_filepath = '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Stacey Smith' ### MODIFY
+
+
+generate_plots = function(working_dir_filepath) {
 #--------------------------------- Import classroom observation data ---------------------------------
 setwd(working_dir_filepath) #set working directory to folder containing the two observers' .csv files
-pdf('./figures/plots.pdf', width=12, height=11)
 theme_set(theme_grey(base_size = 18)) 
+show_subtitles = TRUE 
+
+#check if BERI and/or COPUS data folders exist and which visuals should be created
+if(dir.exists("./BERI") & dir.exists("./COPUS")){
+  protocol = 'BERI_COPUS'
+  run_beri = T
+  run_copus = T
+  message('Creating BERI and COPUS visuals.')
+}else if(dir.exists("./BERI")){
+  protocol = 'BERI'
+  run_beri = T
+  run_copus = F
+  message("Creating BERI visuals only. No COPUS folder exists in working directory.")
+}else if(dir.exists("./COPUS")){
+  protocol = "COPUS"
+  run_beri = F
+  run_copus = T
+  message("Creating COPUS visuals only. No BERI folder exists in working directory.")
+}else{
+  protocol = NA
+  run_beri = F
+  run_copus = F
+  stop("No BERI or COPUS data folders exist in working directory. No visuals created.")
+}
 
 #define helper function read_plus to load files with extra filename column
 read_plus = function(flnm, header=T) {
@@ -28,13 +62,58 @@ read_plus = function(flnm, header=T) {
     mutate(filename = flnm_short)
 }
 
+#extract date, course name, instructor, and observer from filename
+course = NULL
+instructor = NULL
+extract_observation_metadata = function(df){
+  subs = strsplit(df$filename, '_')[[1]]
+  df$filename_long = df$filename
+  df$obs_date = subs[1]
+  df$course = subs[2]
+  df$instructor = subs[3]
+  df$observer = subs[4]
+  #replace filename with date for display in figure subtitles
+  df$filename = df$obs_date
+  assign("course", subs[2], envir = .GlobalEnv)
+  assign("instructor", subs[3], envir = .GlobalEnv)
+  return(df)
+}
+
 # COPUS: Load all files from a directory of COPUS observations
-copus_filenames <- list.files("./COPUS", pattern="*.csv", full.names=TRUE)
-D_copus = lapply(copus_filenames, read_plus) # keep each classroom observation in its own df
+if(run_copus){
+  copus_filenames <- list.files("./COPUS", pattern="*.csv", full.names=TRUE)
+  D_copus = lapply(copus_filenames, read_plus) # keep each classroom observation in its own df
+  D_copus = lapply(D_copus, extract_observation_metadata)
+}
 
 # BERI: Load all files from a directory of BERI observations
-beri_filenames <- list.files("./BERI", pattern="*.csv", full.names=TRUE)
-D_beri = lapply(beri_filenames, read_plus) # keep each classroom observation in its own df
+if(run_beri){
+  beri_filenames <- list.files("./BERI", pattern="*.csv", full.names=TRUE)
+  D_beri = lapply(beri_filenames, read_plus) # keep each classroom observation in its own df
+  D_beri = lapply(D_beri, extract_observation_metadata)
+}
+
+# Check that dates align between BERI and COPUS observation files
+if(run_beri & run_copus){
+  if(length(D_copus) != length(D_beri)) {
+    stop('unequal numbers of BERI and COPUS observations')
+  }else{
+    for(i in 1:length(D_copus)) {
+      if(D_copus[[i]]$obs_date[1] != D_beri[[i]]$obs_date[1]){
+        stop('BERI and COPUS observation dates do not align')
+      }
+    }
+  }
+}
+
+dir.create('./figures', showWarnings = FALSE) # create figures subfolder if it doesn't already exist
+if(show_subtitles){
+  plots_filename = paste0('plots_', instructor, '_', course)
+}else{
+  plots_filename = paste0('plots_anon_', instructor, '_', course)
+}
+pdf(paste0('./figures/', plots_filename, '.pdf'), width=12, height=11) #output all figures to pdf instead of displaying them in R
+
 
 
 # Filter out events that were de-selected, based on their Time.End seconds not being equal to :00 or Time.End minutes being odd (instead of even)
@@ -42,9 +121,9 @@ D_beri = lapply(beri_filenames, read_plus) # keep each classroom observation in 
 # note: Notes also have variable Time.End, and are currently excluded from analysis
 # note: Also filter out any rows that are missing Time.End
 filter_deselected_events = function(df, required_number_of_codes_per_interval) {
-  print(paste("filtering deselected events for file:", df$filename[1]))
+  print(paste("filtering deselected events for file:", df$filename_long[1]))
   if(second(strptime(df$Time.End,format="%I:%M:%S %p"))[1] != 0) {
-    print("First row not an even minute multiple")
+    stop(paste0("First row is not an even minute multiple in file: ", df$filename_long[1]))
   }
   
   pre = nrow(df)
@@ -69,9 +148,9 @@ filter_deselected_events = function(df, required_number_of_codes_per_interval) {
     interval = intervals[i]
     posix_time.ends = as.POSIXct(df$Time.End, format="%I:%M:%S %p")
     if(sum(posix_time.ends==interval)==0) {
-      warning(paste(df$filename[1],"is missing all datapoints for interval Time.End =", format(interval, format="%H:%M:%S")))
+      stop(paste(df$filename_long[1],"is missing all datapoints for interval Time.End =", format(interval, format="%H:%M:%S")))
     }else if(sum(posix_time.ends==interval)<required_number_of_codes_per_interval){
-      warning(paste(df$filename[1],"is missing", as.character(required_number_of_codes_per_interval-sum(posix_time.ends==interval)), "datapoints for interval Time.End =", format(interval, format="%H:%M:%S")))
+      warning(paste(df$filename_long[1],"is missing", as.character(required_number_of_codes_per_interval-sum(posix_time.ends==interval)), "datapoints for interval Time.End =", format(interval, format="%H:%M:%S")))
     }
   }
                                                                                                                               #1 for odd minutes
@@ -81,8 +160,8 @@ filter_deselected_events = function(df, required_number_of_codes_per_interval) {
   print(paste("Removed", pre-post, "rows from", df$filename[1]))
   return(df)
 }
-D_copus = lapply(D_copus, filter_deselected_events, required_number_of_codes_per_interval=2)
-D_beri = lapply(D_beri, filter_deselected_events, required_number_of_codes_per_interval=10)
+if(run_copus) D_copus = lapply(D_copus, filter_deselected_events, required_number_of_codes_per_interval=2)
+if(run_beri) D_beri = lapply(D_beri, filter_deselected_events, required_number_of_codes_per_interval=10)
 
 # Find common start and end times
 filter_nonintersecting_times = function(df_beri, df_copus) {
@@ -97,636 +176,643 @@ filter_nonintersecting_times = function(df_beri, df_copus) {
   df_beri = df_beri[df_beri$time>=start_time & df_beri$time<=end_time,]
   return(list(df_beri, df_copus))
 }
-if(length(D_copus)==length(D_beri)) {
-  D_combined = mapply(filter_nonintersecting_times, D_beri, D_copus)
-  D_beri = D_combined[1,]
-  D_copus = D_combined[2,]
-}else{
-  warning("Error: unequal pairings of copus and beri observations")
+#Check that BERI and COPUS data have equal observation pairings
+if(run_beri & run_copus){
+  if(length(D_copus)==length(D_beri)) {
+    D_combined = mapply(filter_nonintersecting_times, D_beri, D_copus)
+    D_beri = D_combined[1,]
+    D_copus = D_combined[2,]
+  }else{
+    stop("Error: unequal pairings of copus and beri observations")
+  }
 }
+
 
 #--------------------------------- Compile Individual Coder Data (BERI) ---------------------------------
-n_seats = 10
-n_codes = 12
-#code_set = c("D:_Comp","D:_Stud_Int","Distract","E:_Comp","E:_Instr_Int","E:_Stud_Int","Listen","Off","Read","Settle,_Pack","Unresp","Write")
-#engaged_codes = c("E:_Comp","E:_Instr_Int","E:_Stud_Int","Listen","Read","Write")
-#disengaged_codes = c("D:_Comp","D:_Stud_Int","Distract","Off","Settle,_Pack","Unresp")
-beri_codes = read.csv("../beri_codes.csv", header=T)
-code_set = beri_codes$Code
-engaged_codes = beri_codes[beri_codes$Engaged==1, "Code"]
-disengaged_codes = beri_codes[beri_codes$Engaged==0, "Code"]
-
-aggregate_data_beri = function(D)
-{
-  print(paste("Compiling BERI data from file:", D$filename[1]))
-  fn = D$filename[1]
-  D$time = as.character(D$Time.End) 
-  dt = data.table(D)
-  event_split = unlist(strsplit(as.character(dt$Event), "-", fixed=T))
-  dt$Seat = event_split[seq(1, length(event_split), 2)]
-  dt$Code = event_split[seq(2, length(event_split), 2)]
+if(run_beri){
+  n_seats = 10
+  n_codes = 12
+  #code_set = c("D:_Comp","D:_Stud_Int","Distract","E:_Comp","E:_Instr_Int","E:_Stud_Int","Listen","Off","Read","Settle,_Pack","Unresp","Write")
+  #engaged_codes = c("E:_Comp","E:_Instr_Int","E:_Stud_Int","Listen","Read","Write")
+  #disengaged_codes = c("D:_Comp","D:_Stud_Int","Distract","Off","Settle,_Pack","Unresp")
+  beri_codes = read.csv("../../beri_codes.csv", header=T)
+  code_set = beri_codes$Code
+  engaged_codes = beri_codes[beri_codes$Engaged==1, "Code"]
+  disengaged_codes = beri_codes[beri_codes$Engaged==0, "Code"]
   
-  dt[,list(codes_per_interval=length(Event)), by=time]
-  dt_counts = dt[,list(code_type_count = .N), by=list(time, Code)]
-  dt_counts$filename = D$filename[1]
-    
-  #need to add in codes that weren't assigned in each time period
-  used_codes_by_interval = dt[,list(codes=list(Code)), by=time]
-  
-  for(i in 1:nrow(used_codes_by_interval))
+  aggregate_data_beri = function(D)
   {
-    row = used_codes_by_interval[i,]
-    unused_codes = setdiff(code_set, row$codes[[1]])
-    for(j in 1:length(unused_codes))
+    print(paste("Compiling BERI data from file:", D$filename[1]))
+    fn = D$filename[1]
+    D$time = as.character(D$Time.End) 
+    dt = data.table(D)
+    event_split = unlist(strsplit(as.character(dt$Event), "-", fixed=T))
+    dt$Seat = event_split[seq(1, length(event_split), 2)]
+    dt$Code = event_split[seq(2, length(event_split), 2)]
+    
+    dt[,list(codes_per_interval=length(Event)), by=time]
+    dt_counts = dt[,list(code_type_count = .N), by=list(time, Code)]
+    dt_counts$filename = D$filename[1]
+      
+    #need to add in codes that weren't assigned in each time period
+    used_codes_by_interval = dt[,list(codes=list(Code)), by=time]
+    
+    for(i in 1:nrow(used_codes_by_interval))
     {
-      dt_counts = rbind(dt_counts, data.frame(time=row$time, Code=unused_codes[j], code_type_count=0, filename=fn))
+      row = used_codes_by_interval[i,]
+      unused_codes = setdiff(code_set, row$codes[[1]])
+      for(j in 1:length(unused_codes))
+      {
+        dt_counts = rbind(dt_counts, data.frame(time=row$time, Code=unused_codes[j], code_type_count=0, filename=fn))
+      }
     }
+    dt_counts = dt_counts[order(time,Code),]
+    
+    #dt_counts[1:100,]
+    #nrow(dt_counts)
+    
+    #mark whether each code indiciates engaged (1) disengaged (0)
+    dt_counts$engaged = 0
+    dt_counts[dt_counts$Code %in% engaged_codes,]$engaged = 1
+    dt_counts[dt_counts$Code %in% disengaged_codes,]$engaged = 0
+    
+    return(dt_counts)
   }
-  dt_counts = dt_counts[order(time,Code),]
-  
-  #dt_counts[1:100,]
-  #nrow(dt_counts)
-  
-  #mark whether each code indiciates engaged (1) disengaged (0)
-  dt_counts$engaged = 0
-  dt_counts[dt_counts$Code %in% engaged_codes,]$engaged = 1
-  dt_counts[dt_counts$Code %in% disengaged_codes,]$engaged = 0
-  
-  return(dt_counts)
+  beri = lapply(D_beri, aggregate_data_beri)
 }
-beri = lapply(D_beri, aggregate_data_beri)
-
 
 #--------------------------------- Compile Individual Coder Data (COPUS) ---------------------------------
-copus_codes = read.csv("../copus_codes.csv", header=T)
-aggregate_data_copus = function(D)
-{
-  print(paste("Compiling COPUS data from file:", D$filename[1]))
-  D$time = as.character(D$Time.End)
-  #split up events into Instructor vs. Student and Code, and merge with Code_Names from file
-  dt = data.table(D)
-  event_split = unlist(strsplit(as.character(dt$Event), "-", fixed=T))
-  dt$Instructor_Student = event_split[seq(1, length(event_split), 2)]
-  dt$Code = event_split[seq(2, length(event_split), 2)]
-  #dt[,list(codes_per_interval=length(Event)), by=time]
-  dt = merge(dt, copus_codes[,c("Event", "Code_Name")], by=c("Event"), all.x=TRUE)
-  dt = dt[order(as.POSIXct(dt$time, format="%I:%M:%S %p")),]
-  if(nrow(dt[is.na(dt$Code_Name)]) > 0){
-    warning(paste("Unknown Codes in file", D$filename[1], ":", dt[is.na(dt$Code_Name)]$Code, "\n"))
-    print(dt[is.na(dt$Code_Name)])
-  }
-  
-  
-  
-  #convert copus time sequence to minutes numbering (relies on consecutive time sequences)
-  dt$Minutes = 0
-  for(i in 2:nrow(dt)) {
-    if(dt[i,"Time.End"] == dt[i-1,"Time.End"]) {
-      dt[i,"Minutes"] = dt[i-1,"Minutes"]
-    }else{
-      dt[i,"Minutes"] = dt[i-1,"Minutes"]+2
+if(run_copus){
+  copus_codes = read.csv("../../copus_codes.csv", header=T)
+  aggregate_data_copus = function(D)
+  {
+    print(paste("Compiling COPUS data from file:", D$filename[1]))
+    D$time = as.character(D$Time.End)
+    #split up events into Instructor vs. Student and Code, and merge with Code_Names from file
+    dt = data.table(D)
+    event_split = unlist(strsplit(as.character(dt$Event), "-", fixed=T))
+    dt$Instructor_Student = event_split[seq(1, length(event_split), 2)]
+    dt$Code = event_split[seq(2, length(event_split), 2)]
+    #dt[,list(codes_per_interval=length(Event)), by=time]
+    dt = merge(dt, copus_codes[,c("Event", "Code_Name")], by=c("Event"), all.x=TRUE)
+    dt = dt[order(as.POSIXct(dt$time, format="%I:%M:%S %p")),]
+    if(nrow(dt[is.na(dt$Code_Name)]) > 0){
+      stop(paste("Unknown Codes in file", D$filename[1], ":", dt[is.na(dt$Code_Name)]$Code, "\n"))
+      print(dt[is.na(dt$Code_Name)])
     }
+    
+    
+    
+    #convert copus time sequence to minutes numbering (relies on consecutive time sequences)
+    dt$Minutes = 0
+    for(i in 2:nrow(dt)) {
+      if(dt[i,"Time.End"] == dt[i-1,"Time.End"]) {
+        dt[i,"Minutes"] = dt[i-1,"Minutes"]
+      }else{
+        dt[i,"Minutes"] = dt[i-1,"Minutes"]+2
+      }
+    }
+    
+    return(dt)
   }
-  
-  return(dt)
+  copus = lapply(D_copus, aggregate_data_copus)
 }
-copus = lapply(D_copus, aggregate_data_copus)
-
 
 #--------------------------------- Create beri line graph ---------------------------------
-plot_beri_linegraph = function(beri) {
-  engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
-  engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
-  
-  subtitle = NULL 
-  if(show_subtitles){
-    subtitle = beri$filename[1]
-  }
-  
-  #theme_set(theme_bw()) # Change the theme to my preference
-  gg_beri = ggplot(aes(x = Minutes, y = engaged_count), data = engaged_counts) + geom_line() +
-    #ggtitle("Count of Engaged Students (BERI)") +
-    #labs(x="Minutes",y="Number of Engaged Students") 
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-    ggtitle("Student Engagement by Time", subtitle=subtitle) +
-    labs(x="Minutes",y="Engagement") +
-    scale_x_continuous(limits=c(min(engaged_counts$Minutes), max(engaged_counts$Minutes)), expand=c(0,0))
-    return(gg_beri)
-}
-gg_beri = lapply(beri, plot_beri_linegraph)
-gg_beri #plot each classroom observation
-#i = 1; gg_beri[[i]] #plot the i'th particular classroom observation
-
-
-# Create combined BERI line graphs for each observation overlayed in the same figure
-plot_beri_combined_linegraphs = function(beri) {
-  # compile across time
-  engaged_counts = vector("list", length = length(beri))
-  subtitle = ''
-  max_minutes = 0
-  Observation_Num = 1:length(beri)
-  for(i in 1:length(beri)){
-    engaged_counts[[i]] = beri[[i]][engaged==1, list(engaged_count=sum(code_type_count)), by=time]
-    engaged_counts[[i]]$Minutes = seq(0,2*(nrow(engaged_counts[[i]])-1),2)
-    engaged_counts[[i]]$filename = beri[[i]]$filename[1]
-    engaged_counts[[i]]$Observation = i
-    subtitle = paste0(subtitle, '\n', beri[[i]]$filename[1])
-    max_minutes = max(max_minutes, max(engaged_counts[[i]]$Minutes))
-  }
-
-  title = "Student Engagement by Time"
-  cex.main = 1
-  if(show_subtitles){
-    title = paste0(title, subtitle)
-    cex.main = .75
-  }
-  
-  ymin = 0
-  ymax = 10
-  xmin = 0
-  xmax = max_minutes
-  xlab="Minutes"
-  ylab = "Engagement"
-  cols = palette()[c(1,2,4,6,7,8,5,3)] #c("black", "red", "blue")p
-
-plot(engaged_counts[[1]]$Minutes, engaged_counts[[1]]$engaged_count, xlim=c(xmin, xmax), ylim=c(ymin,ymax), type='l', col=cols[1], xlab=xlab, ylab=ylab, main=title, cex.main=cex.main)#, sub=subtitle)
-  for(i in 2:length(beri)){
-    points(engaged_counts[[i]]$Minutes, engaged_counts[[i]]$engaged_count, type='l', col=cols[i])
-  }
-  legend(x=.75, y=2,legend=Observation_Num, title='Observation #',lty=1,col=cols[1:length(beri)], cex=1)
-  #return(gg_beri)
-}
-plot_beri_combined_linegraphs(beri)
-
-#### output data for shane pathway
-engaged_counts = vector("list", length = length(beri))
-subtitle = ''
-max_minutes = 0
-Observation_Num = 1:length(beri)
-for(i in 1:length(beri)){
-  engaged_counts[[i]] = beri[[i]][engaged==1, list(engaged_count=sum(code_type_count)), by=time]
-  engaged_counts[[i]]$Minutes = seq(0,2*(nrow(engaged_counts[[i]])-1),2)
-  engaged_counts[[i]]$filename = beri[[i]]$filename[1]
-  engaged_counts[[i]]$Observation = i
-  subtitle = paste0(subtitle, '\n', beri[[i]]$filename[1])
-  max_minutes = max(max_minutes, max(engaged_counts[[i]]$Minutes))
-}
-
-format_data_for_excel_plotting = function(beri){
-  for(i in 1:length(beri)){
-    engaged_count = engaged_counts[[i]]
-    # format and save data for shane
-    #reshape(engaged_count, idvar="filename", timevar="Minutes", direction="wide")
-    dcast(engaged_count, filename+Observation ~ Minutes, value.var = "engaged_count")
+if(run_beri){
+  plot_beri_linegraph = function(beri) {
+    engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+    engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
     
-    beri_i = beri[[i]]
-    minutes_df = data.frame(time = levels(beri_i$time), Minutes=seq(0, length.out=length(levels(beri_i$time)), by=2))
-    beri_i = merge(beri_i, minutes_df, by='time')
-    beri_i_wide_minutes = dcast(beri_i, filename + Code ~ Minutes, value.var = "code_type_count")
-    beri_i_wide_time = dcast(beri_i, filename + Code ~ time, value.var = "code_type_count")
+    subtitle = NULL 
+    if(show_subtitles){
+      subtitle = beri$filename[1]
+    }
     
-    write.csv(beri_i_wide_minutes, row.names = F, file=paste0('./data_wide/',i,'_minutes_', beri_i_wide_minutes$filename[1], ".csv"))
-    write.csv(beri_i_wide_time, row.names = F, file=paste0('./data_wide/',i,'_time_', beri_i_wide_time$filename[1], ".csv"))
+    #theme_set(theme_bw()) # Change the theme to my preference
+    gg_beri = ggplot(aes(x = Minutes, y = engaged_count), data = engaged_counts) + geom_line() +
+      #ggtitle("Count of Engaged Students (BERI)") +
+      #labs(x="Minutes",y="Number of Engaged Students") 
+      theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+      ggtitle("Student Engagement by Time", subtitle=subtitle) +
+      labs(x="Minutes",y="Engagement") +
+      scale_x_continuous(limits=c(min(engaged_counts$Minutes), max(engaged_counts$Minutes)), expand=c(0,0))
+      return(gg_beri)
   }
+  gg_beri = lapply(beri, plot_beri_linegraph)
+  gg_beri #plot each classroom observation
+  #i = 1; gg_beri[[i]] #plot the i'th particular classroom observation
+  
+  
+  # Create combined BERI line graphs for each observation overlayed in the same figure
+  plot_beri_combined_linegraphs = function(beri) {
+    # compile across time
+    engaged_counts = vector("list", length = length(beri))
+    subtitle = ''
+    max_minutes = 0
+    Observation_Num = 1:length(beri)
+    for(i in 1:length(beri)){
+      engaged_counts[[i]] = beri[[i]][engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+      engaged_counts[[i]]$Minutes = seq(0,2*(nrow(engaged_counts[[i]])-1),2)
+      engaged_counts[[i]]$filename = beri[[i]]$filename[1]
+      engaged_counts[[i]]$Observation = i
+      subtitle = paste0(subtitle, '\n', beri[[i]]$filename[1])
+      max_minutes = max(max_minutes, max(engaged_counts[[i]]$Minutes))
+    }
+  
+    title = "Student Engagement by Time"
+    cex.main = 1
+    if(show_subtitles){
+      title = paste0(title, subtitle)
+      cex.main = .75
+    }
+    
+    ymin = 0
+    ymax = 10
+    xmin = 0
+    xmax = max_minutes
+    xlab="Minutes"
+    ylab = "Engagement"
+    cols = palette()[c(1,2,4,6,7,8,5,3)] #c("black", "red", "blue")p
+  
+  plot(engaged_counts[[1]]$Minutes, engaged_counts[[1]]$engaged_count, xlim=c(xmin, xmax), ylim=c(ymin,ymax), type='l', col=cols[1], xlab=xlab, ylab=ylab, main=title, cex.main=cex.main)#, sub=subtitle)
+    for(i in 2:length(beri)){
+      points(engaged_counts[[i]]$Minutes, engaged_counts[[i]]$engaged_count, type='l', col=cols[i])
+    }
+    legend(x=.75, y=2,legend=Observation_Num, title='Observation #',lty=1,col=cols[1:length(beri)], cex=1)
+    #return(gg_beri)
+  }
+  plot_beri_combined_linegraphs(beri)
+  
+  
+  format_data_for_excel_plotting = function(beri){
+    #### output data for shane pathway
+    engaged_counts = vector("list", length = length(beri))
+    subtitle = ''
+    max_minutes = 0
+    Observation_Num = 1:length(beri)
+    for(i in 1:length(beri)){
+      engaged_counts[[i]] = beri[[i]][engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+      engaged_counts[[i]]$Minutes = seq(0,2*(nrow(engaged_counts[[i]])-1),2)
+      engaged_counts[[i]]$filename = beri[[i]]$filename[1]
+      engaged_counts[[i]]$Observation = i
+      subtitle = paste0(subtitle, '\n', beri[[i]]$filename[1])
+      max_minutes = max(max_minutes, max(engaged_counts[[i]]$Minutes))
+      
+      engaged_count = dcast(engaged_counts[[i]], filename+Observation ~ Minutes, value.var = "engaged_count")
+      write.csv(engaged_count, row.names = F, file=paste0('./data_wide/',i,'_engaged_counts', beri_i_wide_minutes$filename[1], ".csv"))
+    }
+   
+    
+    for(i in 1:length(beri)){
+      engaged_count = engaged_counts[[i]]
+      # format and save data for shane
+      #reshape(engaged_count, idvar="filename", timevar="Minutes", direction="wide")
+      dcast(engaged_count, filename+Observation ~ Minutes, value.var = "engaged_count")
+      
+      beri_i = beri[[i]]
+      minutes_df = data.frame(time = levels(beri_i$time), Minutes=seq(0, length.out=length(levels(beri_i$time)), by=2))
+      beri_i = merge(beri_i, minutes_df, by='time')
+        beri_i_wide_minutes = dcast(beri_i, filename + Code ~ Minutes, value.var = "code_type_count")
+        beri_i_wide_time = dcast(beri_i, filename + Code ~ time, value.var = "code_type_count")
+        
+        write.csv(beri_i_wide_minutes, row.names = F, file=paste0('./data_wide/',i,'_minutes_', beri_i_wide_minutes$filename[1], ".csv"))
+        write.csv(beri_i_wide_time, row.names = F, file=paste0('./data_wide/',i,'_time_', beri_i_wide_time$filename[1], ".csv"))
+      }
+    }
+    #format_data_for_excel_plotting(beri)
 }
-#format_data_for_excel_plotting(beri)
 
 #--------------------------------- Create copus activity by time plot (combined instructor and student) ---------------------------------
-plot_copus_timecourse = function(copus) {
-  #copus$Code_Factor = factor(copus$Code, levels=c("O", "W", "T/Q", "Prd", "OG", "WG", "CG", "Ind", "SP", "WC", "SQ", "AnQ", "L", 
-  #                                                 "Adm", "1o1", "MG", "CQ", "PQ", "FUp", "D/V", "RtW", "Lec"))#copus$Code_Names = factor(copus$Code_Name, levels=copus_codes$Code_Name, ordered=TRUE)
-  #copus$Code_Name_Factor = factor(copus$Code_Name, levels=copus_codes$Code_Name)
-  copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
-  copus$code_type_count = 1
-  copus[Instructor_Student=="Instructor", "code_type_count"]=2
-  
-  subtitle = NULL 
-  if(show_subtitles){
-    subtitle = copus$filename[1]
+if(run_copus){
+  plot_copus_timecourse = function(copus) {
+    #copus$Code_Factor = factor(copus$Code, levels=c("O", "W", "T/Q", "Prd", "OG", "WG", "CG", "Ind", "SP", "WC", "SQ", "AnQ", "L", 
+    #                                                 "Adm", "1o1", "MG", "CQ", "PQ", "FUp", "D/V", "RtW", "Lec"))#copus$Code_Names = factor(copus$Code_Name, levels=copus_codes$Code_Name, ordered=TRUE)
+    #copus$Code_Name_Factor = factor(copus$Code_Name, levels=copus_codes$Code_Name)
+    copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
+    copus$code_type_count = 1
+    copus[Instructor_Student=="Instructor", "code_type_count"]=2
+    
+    subtitle = NULL 
+    if(show_subtitles){
+      subtitle = copus$filename[1]
+    }
+    
+    gg_copus = (ggplot(data = copus, aes(x = as.factor(Minutes), y = Code_Name, fill=code_type_count)) +
+      geom_tile(colour="black") +
+      scale_fill_gradient(low="red", high="steelblue") +
+      #coord_equal() + 
+      facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
+      theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+      ggtitle("Occurrence of Activity by Time", subtitle=subtitle) +
+      labs(x = "",y = "") + 
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+      theme(axis.ticks=element_blank()) + 
+      theme(axis.text=element_text(size=12, color="black")) + 
+      theme(legend.position = "none"))
+    return(gg_copus)
   }
-  
-  gg_copus = (ggplot(data = copus, aes(x = as.factor(Minutes), y = Code_Name, fill=code_type_count)) +
-    geom_tile(colour="black") +
-    scale_fill_gradient(low="red", high="steelblue") +
-    #coord_equal() + 
-    facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-    ggtitle("Occurrence of Activity by Time", subtitle=subtitle) +
-    labs(x = "",y = "") + 
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-    theme(axis.ticks=element_blank()) + 
-    theme(axis.text=element_text(size=12, color="black")) + 
-    theme(legend.position = "none"))
-  return(gg_copus)
+  gg_copus = lapply(copus, plot_copus_timecourse)
+  gg_copus #plot each classroom observation
+  #i = 1; gg_copus[[i]] #plot the i'th particular classroom observation
 }
-gg_copus = lapply(copus, plot_copus_timecourse)
-gg_copus #plot each classroom observation
-#i = 1; gg_copus[[i]] #plot the i'th particular classroom observation
+
 
 #Plot BERI line above COPUS heatmap
-plot_beri_and_copus = function(gg_beri, gg_copus) {
-  grid.newpage()
-  grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_copus), size = "last"))
+if(run_beri & run_copus){
+  plot_beri_and_copus = function(gg_beri, gg_copus) {
+    grid.newpage()
+    grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_copus), size = "last"))
+  }
+  mapply(plot_beri_and_copus, gg_beri, gg_copus)
 }
-mapply(plot_beri_and_copus, gg_beri, gg_copus)
-
 #--------------------------------- Create BERI code by time plot (combined engaged and disengaged) ---------------------------------
-plot_beri_timecourse = function(beri, use_color=T) {
-  beri$Engaged_Factor = "Disengaged"
-  beri[beri$engaged==1,]$Engaged_Factor = "Engaged"
-  beri$Engaged_Factor = factor(beri$Engaged_Factor, levels=c("Engaged", "Disengaged"))
-
-  beri = merge(beri, beri_codes, by='Code')
-  beri$Code_Labels = beri$Short_Code_Name
+if(run_beri){
+  plot_beri_timecourse = function(beri, use_color=T) {
+    beri$Engaged_Factor = "Disengaged"
+    beri[beri$engaged==1,]$Engaged_Factor = "Engaged"
+    beri$Engaged_Factor = factor(beri$Engaged_Factor, levels=c("Engaged", "Disengaged"))
   
-  #beri[, list(Minutes = seq(0, length(unique(beri$time)))), by=c('time')]
-  minutes_df = data.frame(time = levels(beri$time), Minutes=seq(0, length.out=length(levels(beri$time)), by=2))
-  beri = merge(beri, minutes_df, by='time')
-  
-  subtitle = NULL 
-  if(show_subtitles){
-    subtitle = beri$filename[1]
+    beri = merge(beri, beri_codes, by='Code')
+    beri$Code_Labels = beri$Short_Code_Name
+    
+    #beri[, list(Minutes = seq(0, length(unique(beri$time)))), by=c('time')]
+    minutes_df = data.frame(time = levels(beri$time), Minutes=seq(0, length.out=length(levels(beri$time)), by=2))
+    beri = merge(beri, minutes_df, by='time')
+    
+    subtitle = NULL 
+    if(show_subtitles){
+      subtitle = beri$filename[1]
+    }
+    
+    if(use_color) {
+      low_color = "beige"
+      high_color = "red"
+    }else{
+      low_color = "white"
+      high_color = "black"
+    }
+    
+    beri = beri[beri$code_type_count>0,] # restrict to non-zero code counts
+    gg_beri = (ggplot(data = beri, aes(x = as.factor(Minutes), y = Code_Labels, fill=code_type_count)) +
+                  geom_tile(colour="black") +
+                  scale_fill_gradient(low=low_color, high=high_color, name="Number of Students") +
+                  #coord_equal() + 
+                  facet_wrap(~Engaged_Factor, nrow=2, scales="free_y") +
+                  theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+                  ggtitle("Engaged & Disengaged Behaviors by Time", subtitle=subtitle) +
+                  labs(x = "Minutes",y = "") + 
+                  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+                  theme(axis.ticks=element_blank()) + 
+                  theme(axis.text=element_text(size=12, color="black")) + 
+                  theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
+    #gg_beri
+    return(gg_beri)
   }
+  gg_beri_timecourse = lapply(beri, plot_beri_timecourse)
+  gg_beri_timecourse #plot each classroom observation
+  #i = 1; gg_beri_timecourse[[i]] #plot the i'th particular classroom observation
   
-  if(use_color) {
-    low_color = "beige"
-    high_color = "red"
-  }else{
-    low_color = "white"
-    high_color = "black"
+  #Plot BERI line above BERI timecourse heatmap
+  plot_beri_line_and_timecourse_heatmap = function(gg_beri, gg_beri_timecourse) {
+    grid.newpage()
+    grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse), size = "last"))
   }
-  
-  beri = beri[beri$code_type_count>0,] # restrict to non-zero code counts
-  gg_beri = (ggplot(data = beri, aes(x = as.factor(Minutes), y = Code_Labels, fill=code_type_count)) +
-                geom_tile(colour="black") +
-                scale_fill_gradient(low=low_color, high=high_color, name="Number of Students") +
-                #coord_equal() + 
-                facet_wrap(~Engaged_Factor, nrow=2, scales="free_y") +
-                theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-                ggtitle("Engaged & Disengaged Behaviors by Time", subtitle=subtitle) +
-                labs(x = "Minutes",y = "") + 
-                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-                theme(axis.ticks=element_blank()) + 
-                theme(axis.text=element_text(size=12, color="black")) + 
-                theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
-  #gg_beri
-  return(gg_beri)
+  mapply(plot_beri_line_and_timecourse_heatmap, gg_beri, gg_beri_timecourse)
 }
-gg_beri_timecourse = lapply(beri, plot_beri_timecourse)
-gg_beri_timecourse #plot each classroom observation
-#i = 1; gg_beri_timecourse[[i]] #plot the i'th particular classroom observation
-
-#Plot BERI line above BERI timecourse heatmap
-plot_beri_line_and_timecourse_heatmap = function(gg_beri, gg_beri_timecourse) {
-  grid.newpage()
-  grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse), size = "last"))
-}
-mapply(plot_beri_line_and_timecourse_heatmap, gg_beri, gg_beri_timecourse)
-
 
 #--------------------------------- Plot copus heatmap with beri engaged_counts as the heatmap values ---------------------------------
-
-plot_beri_and_copus_heatmap = function(beri, copus, use_color=T) {
-  copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
-  copus$code_type_count = 1
-  copus[Instructor_Student=="Instructor", "code_type_count"]=2
+if(run_beri & run_copus){
+  plot_beri_and_copus_heatmap = function(beri, copus, use_color=T) {
+    copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
+    copus$code_type_count = 1
+    copus[Instructor_Student=="Instructor", "code_type_count"]=2
+    
+    engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+    engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
   
-  engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
-  engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
-
-  #sanity checks
-  if(nrow(merge(copus, engaged_counts, by=c("Minutes", "time"))) != nrow(merge(copus, engaged_counts, by=c("time")))) {
-    print("Warning: Either copus or beri data is missing data from a time period")
-    print(paste("Files:",beri$filename[1], copus$filename[1]))
+    #sanity checks
+    if(nrow(merge(copus, engaged_counts, by=c("Minutes", "time"))) != nrow(merge(copus, engaged_counts, by=c("time")))) {
+      stop("Warning: Either copus or beri data is missing data from a time period")
+      print(paste("Files:",beri$filename[1], copus$filename[1]))
+    }
+    
+    combined = merge(copus, engaged_counts, by=c("time", "Minutes"), all=TRUE)
+    #combined$Minutes = seq(0,2*(nrow(combined)-1),2)
+    
+  
+    #nrow(merge(copus, engaged_counts, by=c("time"), all=TRUE))
+    #nrow(copus)
+    #nrow(engaged_counts)
+    #nrow(combined)
+    
+    if(use_color) {
+      low_color = "beige"
+      high_color = "red"
+    }else{
+      low_color = "white"
+      high_color = "black"
+    }
+    
+    subtitle = NULL 
+    if(show_subtitles){
+      subtitle = paste0( "\n", copus$filename[1], "\n", beri$filename[1])
+    }
+    
+    gg_combined = (ggplot(data = combined, aes(x = as.factor(Minutes), y = Code_Name, fill=engaged_count)) +
+                  geom_tile() + #no boxes around each cell
+                  #geom_tile(colour="black") + #put boxes around each cell
+                  scale_fill_gradient(low=low_color, high=high_color, name="Number Engaged") +
+                  #scale_fill_hue() + #discrete colors instead of continuous range
+                  facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
+                  #coord_equal() + #square instead of rectangular cells
+                  theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+                  ggtitle("Occurrence of Activity by Time", subtitle=paste("with Student Engagment", subtitle)) +
+                  labs(x = "Minutes",y = "") + 
+                  theme(axis.ticks=element_blank()) + 
+                  theme(axis.text=element_text(size=12, color="black")) + 
+                  #theme_bw() + #removes background color
+                  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+                  theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
+    return(gg_combined)
+    
+    #Plot BERI line above COPUS heatmap
+    #grid.newpage()
+    #grid.draw(rbind(ggplotGrob(gg_beri_minimal), ggplotGrob(gg_combined), size = "last"))
+  }
+  #i=2
+  #plot_beri_and_copus_heatmap(beri[[i]], copus[[i]])
+  
+  gg_combined = vector("list", length = length(beri))
+  for(i in 1:length(beri)){
+    gg_combined[[i]] = plot_beri_and_copus_heatmap(beri[[i]], copus[[i]])
   }
   
-  combined = merge(copus, engaged_counts, by=c("time", "Minutes"), all=TRUE)
-  #combined$Minutes = seq(0,2*(nrow(combined)-1),2)
-  
-
-  #nrow(merge(copus, engaged_counts, by=c("time"), all=TRUE))
-  #nrow(copus)
-  #nrow(engaged_counts)
-  #nrow(combined)
-  
-  if(use_color) {
-    low_color = "beige"
-    high_color = "red"
-  }else{
-    low_color = "white"
-    high_color = "black"
+  gg_combined 
+  for(i in 1:length(beri)) {
+    grid.newpage()
+    grid.draw(rbind(ggplotGrob(gg_beri[[i]]), ggplotGrob(gg_combined[[i]]), size = "last"))
   }
-  
-  subtitle = NULL 
-  if(show_subtitles){
-    subtitle = paste0( "\n", copus$filename[1], "\n", beri$filename[1])
-  }
-  
-  gg_combined = (ggplot(data = combined, aes(x = as.factor(Minutes), y = Code_Name, fill=engaged_count)) +
-                geom_tile() + #no boxes around each cell
-                #geom_tile(colour="black") + #put boxes around each cell
-                scale_fill_gradient(low=low_color, high=high_color, name="Number Engaged") +
-                #scale_fill_hue() + #discrete colors instead of continuous range
-                facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
-                #coord_equal() + #square instead of rectangular cells
-                theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-                ggtitle("Occurrence of Activity by Time", subtitle=paste("with Student Engagment", subtitle)) +
-                labs(x = "Minutes",y = "") + 
-                theme(axis.ticks=element_blank()) + 
-                theme(axis.text=element_text(size=12, color="black")) + 
-                #theme_bw() + #removes background color
-                theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-                theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
-  return(gg_combined)
-  
-  #Plot BERI line above COPUS heatmap
-  #grid.newpage()
-  #grid.draw(rbind(ggplotGrob(gg_beri_minimal), ggplotGrob(gg_combined), size = "last"))
 }
-#i=2
-#plot_beri_and_copus_heatmap(beri[[i]], copus[[i]])
-
-gg_combined = vector("list", length = length(beri))
-for(i in 1:length(beri)){
-  gg_combined[[i]] = plot_beri_and_copus_heatmap(beri[[i]], copus[[i]])
-}
-
-gg_combined 
-for(i in 1:length(beri)) {
-  grid.newpage()
-  grid.draw(rbind(ggplotGrob(gg_beri[[i]]), ggplotGrob(gg_combined[[i]]), size = "last"))
-}
-
 #--------------------------------- Activities graphs ---------------------------------
-
-# Plot activity as a percentage of total class time
-plot_activities_percentage_time = function(beri, copus, use_color=T) {
-  
-  if(use_color) {
-    low_color = "beige"
-    high_color = "red"
-  }else{
-    low_color = "white"
-    high_color = "black"
+if(run_beri & run_copus){
+  # Plot activity as a percentage of total class time
+  plot_activities_percentage_time = function(beri, copus, use_color=T) {
+    
+    if(use_color) {
+      low_color = "beige"
+      high_color = "red"
+    }else{
+      low_color = "white"
+      high_color = "black"
+    }
+    
+    subtitle = NULL 
+    if(show_subtitles){
+      subtitle = paste0("\n", copus$filename[1], "\n", beri$filename[1])
+    }
+    
+    copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
+    copus$code_type_count = 1
+    copus[Instructor_Student=="Instructor", "code_type_count"]=2
+    engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+    engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
+    #sanity checks
+    if(nrow(merge(copus, engaged_counts, by=c("Minutes", "time"))) != nrow(merge(copus, engaged_counts, by=c("time")))) {
+      stop(paste("Warning: Either copus or beri data is missing data from a time period: Files:", beri$filename[1], copus$filename[1]))
+    }
+    combined = merge(copus, engaged_counts, by=c("time", "Minutes"), all=TRUE)
+    copus_code_counts = combined[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
+    copus_code_counts$Percentage = 100*copus_code_counts$Code_Count/length(unique(combined$Minutes))
+   
+    gg_activities_bar_time <-(ggplot(data=copus_code_counts, aes(x=reorder(Code_Name, Percentage), y=Percentage, fill=mean_engaged_count)) +
+                                geom_bar(stat="identity", color="black") +
+                                scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                                facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
+                                theme(legend.position = "bottom", legend.key.width=unit(3,"cm"))) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+      coord_flip() +
+      theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+      ggtitle("Activity as a Percentage of Total Class Time", subtitle=paste("with Student Engagment", subtitle)) +
+      labs(x="", y="Percentage of Total Class Time")  +
+      geom_text(aes(y = Percentage + 3.5,    # nudge above top of bar
+                    label = paste0(round(Percentage, digits=0), '%')),    # prettify
+                position = position_dodge(width = .9), 
+                size = 8) 
+    #return(gg_activities_bar_time)
+    gg_activities_bar_time
   }
   
-  subtitle = NULL 
-  if(show_subtitles){
-    subtitle = paste0("\n", copus$filename[1], "\n", beri$filename[1])
+  gg_activities_percentage_time = vector("list", length = length(beri))
+  for(i in 1:length(beri)) {
+    gg_activities_percentage_time[[i]] = plot_activities_percentage_time(beri[[i]], copus[[i]])
   }
-  
-  copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
-  copus$code_type_count = 1
-  copus[Instructor_Student=="Instructor", "code_type_count"]=2
-  engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
-  engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
-  #sanity checks
-  if(nrow(merge(copus, engaged_counts, by=c("Minutes", "time"))) != nrow(merge(copus, engaged_counts, by=c("time")))) {
-    warning(paste("Warning: Either copus or beri data is missing data from a time period: Files:", beri$filename[1], copus$filename[1]))
-  }
-  combined = merge(copus, engaged_counts, by=c("time", "Minutes"), all=TRUE)
-  copus_code_counts = combined[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
-  copus_code_counts$Percentage = 100*copus_code_counts$Code_Count/length(unique(combined$Minutes))
- 
-  gg_activities_bar_time <-(ggplot(data=copus_code_counts, aes(x=reorder(Code_Name, Percentage), y=Percentage, fill=mean_engaged_count)) +
-                              geom_bar(stat="identity", color="black") +
-                              scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
-                              facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
-                              theme(legend.position = "bottom", legend.key.width=unit(3,"cm"))) +
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-    coord_flip() +
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-    ggtitle("Activity as a Percentage of Total Class Time", subtitle=paste("with Student Engagment", subtitle)) +
-    labs(x="", y="Percentage of Total Class Time")  +
-    geom_text(aes(y = Percentage + 3.5,    # nudge above top of bar
-                  label = paste0(round(Percentage, digits=0), '%')),    # prettify
-              position = position_dodge(width = .9), 
-              size = 8) 
-  #return(gg_activities_bar_time)
-  gg_activities_bar_time
+  gg_activities_percentage_time
 }
-
-gg_activities_percentage_time = vector("list", length = length(beri))
-for(i in 1:length(beri)) {
-  gg_activities_percentage_time[[i]] = plot_activities_percentage_time(beri[[i]], copus[[i]])
-}
-gg_activities_percentage_time
-
 #--------------------------------- Aggregate Across Observations ---------------------------------
-
-# Activity as a Percentage of Class Time (COPUS only)
-aggregate_copus_observations = function(copus) {
-  copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
-  copus$code_type_count = 1
-  copus[Instructor_Student=="Instructor", "code_type_count"]=2
-  copus_code_counts = copus[, list(Code_Count=.N), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
-  copus_code_counts$N_TimePeriods = length(unique(copus$Minutes))
-  #copus_code_counts$Percentage = 100*copus_code_counts$Code_Count/length(unique(copus$Minutes))
-  copus_code_counts$filename = copus$filename[1]
-  #if(!is.null(copus$enrollment[1])){
-  #  copus_code_counts$enrollment = copus$enrollment[1]
-  #}else{
-  #  copus_code_counts$enrollment = NA
-  #}
-  return(copus_code_counts)
-}
-
-plot_copus_activities_percentage_time = function(copus_code_counts) {
-  
-  subtitle = NULL 
-  if(show_subtitles){
-    subtitle = copus_code_counts$filename[1]
+if(run_copus){
+  # Activity as a Percentage of Class Time (COPUS only)
+  aggregate_copus_observations = function(copus) {
+    copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
+    copus$code_type_count = 1
+    copus[Instructor_Student=="Instructor", "code_type_count"]=2
+    copus_code_counts = copus[, list(Code_Count=.N), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
+    copus_code_counts$N_TimePeriods = length(unique(copus$Minutes))
+    #copus_code_counts$Percentage = 100*copus_code_counts$Code_Count/length(unique(copus$Minutes))
+    copus_code_counts$filename = copus$filename[1]
+    #if(!is.null(copus$enrollment[1])){
+    #  copus_code_counts$enrollment = copus$enrollment[1]
+    #}else{
+    #  copus_code_counts$enrollment = NA
+    #}
+    return(copus_code_counts)
   }
   
-  gg_activities_bar <-(ggplot(data=copus_code_counts, aes(x=reorder(Code_Name, Percentage), y=Percentage, fill=code_type_count)) +
-                         geom_bar(stat="identity", color="black") +
-                         scale_fill_gradient(low="red", high="steelblue") +
-                         #scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
-                         facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
-                         theme(legend.position = "bottom")) +
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-    coord_flip() +
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-    ggtitle("Activity as a Percentage of Total Class Time", subtitle=subtitle) +
-    labs(x="", y="Percentage of Total Class Time")  +
-    theme(legend.position = "none") +
-    geom_text(aes(y = Percentage + 4.0,    # nudge above top of bar (between 3.5 and 4.0)
-                  label = paste0(round(Percentage, digits=0), '%')),    # prettify
-              position = position_dodge(width = .9), 
-              size = 8) 
-  gg_activities_bar
-  return(gg_activities_bar)
+  plot_copus_activities_percentage_time = function(copus_code_counts) {
+
+    subtitle = copus_code_counts$filename[1]
+    
+    gg_activities_bar <-(ggplot(data=copus_code_counts, aes(x=reorder(Code_Name, Percentage), y=Percentage, fill=code_type_count)) +
+                           geom_bar(stat="identity", color="black") +
+                           scale_fill_gradient(low="red", high="steelblue") +
+                           #scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                           facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
+                           theme(legend.position = "bottom")) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+      coord_flip() +
+      theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+      ggtitle("Activity as a Percentage of Total Class Time", subtitle=subtitle) +
+      labs(x="", y="Percentage of Total Class Time")  +
+      theme(legend.position = "none") +
+      geom_text(aes(y = Percentage + 4.0,    # nudge above top of bar (between 3.5 and 4.0)
+                    label = paste0(round(Percentage, digits=0), '%')),    # prettify
+                position = position_dodge(width = .9), 
+                size = 8) 
+    gg_activities_bar
+    return(gg_activities_bar)
+  }
+  
+  #plot average across observations. # The following note is outdated, because now all 2-min time periods are weighted equally: Note: Percentages are averaged over number of classroom observations, weighting each observation equally (as opposed to greater weighting for observations with more 2-min time periods)
+  copus_code_counts = lapply(copus, aggregate_copus_observations)
+  copus_code_counts_bound = rbindlist(copus_code_counts)
+  #copus_code_counts_agg = copus_code_counts_bound[, list(Percentage=round(sum(Percentage)/length(copus_code_counts)), 0), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
+  copus_code_counts_agg = copus_code_counts_bound[, list(Code_Count=sum(Code_Count), 0), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
+  copus_code_counts_agg$Percentage = 100*copus_code_counts_agg$Code_Count / sum(unique(copus_code_counts_bound[,c("N_TimePeriods", "filename")])$N_TimePeriods)
+  copus_code_counts_agg$filename = paste0('Averaged across ', length(copus_code_counts), ' classroom observations')
+  gg_copus_agg = plot_copus_activities_percentage_time(copus_code_counts_agg)
+  gg_copus_agg
 }
-
-#plot average across observations. # The following note is outdated, because now all 2-min time periods are weighted equally: Note: Percentages are averaged over number of classroom observations, weighting each observation equally (as opposed to greater weighting for observations with more 2-min time periods)
-copus_code_counts = lapply(copus, aggregate_copus_observations)
-copus_code_counts_bound = rbindlist(copus_code_counts)
-#copus_code_counts_agg = copus_code_counts_bound[, list(Percentage=round(sum(Percentage)/length(copus_code_counts)), 0), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
-copus_code_counts_agg = copus_code_counts_bound[, list(Code_Count=sum(Code_Count), 0), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
-copus_code_counts_agg$Percentage = 100*copus_code_counts_agg$Code_Count / sum(unique(copus_code_counts_bound[,c("N_TimePeriods", "filename")])$N_TimePeriods)
-copus_code_counts_agg$filename = paste0('Averaged across ', length(copus_code_counts), ' classroom observations')
-gg_copus_agg = plot_copus_activities_percentage_time(copus_code_counts_agg)
-gg_copus_agg
-
 
 # Activity as a Percentage of Class Time HEATMAP (beri + copus)
-aggregate_copus_beri_observations = function(beri, copus) {
-  copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
-  copus$code_type_count = 1
-  copus[Instructor_Student=="Instructor", "code_type_count"]=2
-  engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
-  engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
-  #sanity checks
-  if(nrow(merge(copus, engaged_counts, by=c("Minutes", "time"))) != nrow(merge(copus, engaged_counts, by=c("time")))) {
-    print("Warning: Either copus or beri data is missing data from a time period")
-    print(paste("Files:",beri$filename[1], copus$filename[1]))
-  }
-  copus_beri_combined = merge(copus, engaged_counts, by=c("time", "Minutes"), all=TRUE)
-  #copus_code_counts = combined[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
-  #copus_code_counts$Percentage = 100*copus_code_counts$Code_Count/length(unique(combined$Minutes))
-  return(copus_beri_combined)
-}
-
-plot_copus_beri_activities_percentage_time_agg = function(copus_code_counts, use_color=T) {
-  if(use_color) {
-    low_color = "beige"
-    high_color = "red"
-  }else{
-    low_color = "white"
-    high_color = "black"
+if(run_beri & run_copus){
+  aggregate_copus_beri_observations = function(beri, copus) {
+    copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
+    copus$code_type_count = 1
+    copus[Instructor_Student=="Instructor", "code_type_count"]=2
+    engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+    engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
+    #sanity checks
+    if(nrow(merge(copus, engaged_counts, by=c("Minutes", "time"))) != nrow(merge(copus, engaged_counts, by=c("time")))) {
+      stop("Warning: Either copus or beri data is missing data from a time period")
+      print(paste("Files:",beri$filename[1], copus$filename[1]))
+    }
+    copus_beri_combined = merge(copus, engaged_counts, by=c("time", "Minutes"), all=TRUE)
+    #copus_code_counts = combined[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
+    #copus_code_counts$Percentage = 100*copus_code_counts$Code_Count/length(unique(combined$Minutes))
+    return(copus_beri_combined)
   }
   
-  subtitle = NULL 
-  if(show_subtitles){
+  plot_copus_beri_activities_percentage_time_agg = function(copus_code_counts, use_color=T) {
+    if(use_color) {
+      low_color = "beige"
+      high_color = "red"
+    }else{
+      low_color = "white"
+      high_color = "black"
+    }
+    
     subtitle = paste0("\n", copus_code_counts$filename[1])
+    
+    
+    
+    reorder_percentage <- function(Code_Name, Instructor_Student_Factor, Percentage) {
+      #factor(Code_Name, levels = unique(Code_Name[order(Instructor_Student_Factor, Percentage)]))
+      factor(Code_Name, levels = unique(Code_Name[order(Percentage)]))
+    }
+    
+    #copus_code_counts = copus_code_counts[order(copus_code_counts$Percentage, copus_code_counts$Instructor_Student_Factor),] #sort by decreasing percentage. But not working
+    gg_activities_bar_time <-(ggplot(data=copus_code_counts, aes(x=reorder_percentage(Code_Name, Instructor_Student_Factor, Percentage), y=Percentage, fill=mean_engaged_count)) +
+                                geom_bar(stat="identity", color="black") +
+                                scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                                facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
+                                theme(legend.position = "bottom", legend.key.width=unit(3,"cm"))) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+      coord_flip() +
+      theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+      ggtitle("Activity as a Percentage of Total Class Time", subtitle=paste("with Student Engagment", subtitle)) +
+      labs(x="", y="Percentage of Total Class Time")  +
+      geom_text(aes(y = Percentage + 3.5,    # nudge above top of bar
+                    label = paste0(round(Percentage, digits=0), '%')),    # prettify
+                position = position_dodge(width = .9), 
+                size = 8) 
+    #return(gg_activities_bar_time)
+    gg_activities_bar_time
+    return(gg_activities_bar_time)
   }
   
-  
-  reorder_percentage <- function(Code_Name, Instructor_Student_Factor, Percentage) {
-    #factor(Code_Name, levels = unique(Code_Name[order(Instructor_Student_Factor, Percentage)]))
-    factor(Code_Name, levels = unique(Code_Name[order(Percentage)]))
+  copus_beri_combined = vector("list", length = length(beri))
+  for(i in 1:length(beri)){
+    copus_beri_combined[[i]] = aggregate_copus_beri_observations(beri[[i]], copus[[i]])
+    print(length(names(copus_beri_combined[[i]])))
+    print(names(copus_beri_combined[[i]]))
   }
-  
-  #copus_code_counts = copus_code_counts[order(copus_code_counts$Percentage, copus_code_counts$Instructor_Student_Factor),] #sort by decreasing percentage. But not working
-  gg_activities_bar_time <-(ggplot(data=copus_code_counts, aes(x=reorder_percentage(Code_Name, Instructor_Student_Factor, Percentage), y=Percentage, fill=mean_engaged_count)) +
-                              geom_bar(stat="identity", color="black") +
-                              scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
-                              facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
-                              theme(legend.position = "bottom", legend.key.width=unit(3,"cm"))) +
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-    coord_flip() +
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-    ggtitle("Activity as a Percentage of Total Class Time", subtitle=paste("with Student Engagment", subtitle)) +
-    labs(x="", y="Percentage of Total Class Time")  +
-    geom_text(aes(y = Percentage + 3.5,    # nudge above top of bar
-                  label = paste0(round(Percentage, digits=0), '%')),    # prettify
-              position = position_dodge(width = .9), 
-              size = 8) 
-  #return(gg_activities_bar_time)
-  gg_activities_bar_time
-  return(gg_activities_bar_time)
+  copus_beri_combined_bound = rbindlist(copus_beri_combined)
+  copus_beri_agg = copus_beri_combined_bound[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
+  copus_beri_agg$Percentage = 100*copus_beri_agg$Code_Count/nrow(unique(copus_beri_combined_bound[,c("Minutes", "filename")]))
+  copus_beri_agg$filename = paste0('Averaged across ', length(copus_beri_combined), ' classroom observations')
+  plot_copus_beri_activities_percentage_time_agg(copus_beri_agg)
 }
-
-copus_beri_combined = vector("list", length = length(beri))
-for(i in 1:length(beri)){
-  copus_beri_combined[[i]] = aggregate_copus_beri_observations(beri[[i]], copus[[i]])
-  print(length(names(copus_beri_combined[[i]])))
-  print(names(copus_beri_combined[[i]]))
-}
-copus_beri_combined_bound = rbindlist(copus_beri_combined)
-copus_beri_agg = copus_beri_combined_bound[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
-copus_beri_agg$Percentage = 100*copus_beri_agg$Code_Count/nrow(unique(copus_beri_combined_bound[,c("Minutes", "filename")]))
-copus_beri_agg$filename = paste0('Averaged across ', length(copus_beri_combined), ' classroom observations')
-plot_copus_beri_activities_percentage_time_agg(copus_beri_agg)
-
 #names(copus_beri_combined_bound)
 
 # BERI Codes as a Percentage of total beri codes
-aggregate_beri_observations = function(beri) {
-  beri$Engaged_Factor = "Disengaged"
-  beri[beri$engaged==1,]$Engaged_Factor = "Engaged"
-  beri$Engaged_Factor = factor(beri$Engaged_Factor, levels=c("Engaged", "Disengaged"))
-  
-  beri = merge(beri, beri_codes, by='Code')
-  beri$Code_Labels = beri$Short_Code_Name
-  
-  minutes_df = data.frame(time = levels(beri$time), Minutes=seq(0, length.out=length(levels(beri$time)), by=2))
-  beri = merge(beri, minutes_df, by='time')
-  return(beri)
-}
-
-plot_beri_codes_percentage_time_agg = function(beri_agg, use_color=T) {
-  if(use_color) {
-    low_color = "beige"
-    high_color = "red"
-  }else{
-    low_color = "white"
-    high_color = "black"
+if(run_beri){
+  aggregate_beri_observations = function(beri) {
+    beri$Engaged_Factor = "Disengaged"
+    beri[beri$engaged==1,]$Engaged_Factor = "Engaged"
+    beri$Engaged_Factor = factor(beri$Engaged_Factor, levels=c("Engaged", "Disengaged"))
+    
+    beri = merge(beri, beri_codes, by='Code')
+    beri$Code_Labels = beri$Short_Code_Name
+    
+    minutes_df = data.frame(time = levels(beri$time), Minutes=seq(0, length.out=length(levels(beri$time)), by=2))
+    beri = merge(beri, minutes_df, by='time')
+    return(beri)
   }
   
-  subtitle = NULL 
-  if(show_subtitles){
-    subtitle = beri_agg$filename[1]
+  plot_beri_codes_percentage_time_agg = function(beri_agg, use_color=T) {
+    if(use_color) {
+      low_color = "beige"
+      high_color = "red"
+    }else{
+      low_color = "white"
+      high_color = "black"
+    }
+    
+    subtitle = NULL 
+    if(show_subtitles){
+      subtitle = beri_agg$filename[1]
+    }
+    
+    
+    beri_agg = merge(beri_agg, beri_codes, by='Code')
+    beri_agg$Code_Label = beri_agg$Short_Code_Name
+    
+    reorder_percentage <- function(Code_Label, Percentage) {
+      #factor(Code_Name, levels = unique(Code_Name[order(Instructor_Student_Factor, Percentage)]))
+      factor(Code_Name, levels = unique(Code_Name[order(Percentage)]))
+    }
+    
+    #copus_code_counts = copus_code_counts[order(copus_code_counts$Percentage, copus_code_counts$Instructor_Student_Factor),] #sort by decreasing percentage. But not working
+    gg_activities_bar_beri <-(ggplot(data=beri_agg, aes(x=reorder(Code_Label, Percentage), y=Percentage, fill=Engaged_Factor)) +
+                                geom_bar(stat="identity", color="black") +
+                                #scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                                facet_wrap(~Engaged_Factor, nrow=2, scales="free_y") +
+      theme(legend.position = "none", legend.key.width=unit(3,"cm"))) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+      coord_flip() +
+      theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+      ggtitle("Engaged & Disengaged Behaviors\nas a Percentage of All Behaviors", subtitle=subtitle) +
+      labs(x="", y="Percentage of Total BERI Codes")  +
+      geom_text(aes(y = Percentage + 3.5,    # nudge above top of bar
+                    label = paste0(round(Percentage, digits=1), '%')),    # prettify
+                position = position_dodge(width = .9), 
+                size = 8)
+    gg_activities_bar_beri
+    return(gg_activities_bar_beri)
   }
   
-  
-  beri_agg = merge(beri_agg, beri_codes, by='Code')
-  beri_agg$Code_Label = beri_agg$Short_Code_Name
-  
-  reorder_percentage <- function(Code_Label, Percentage) {
-    #factor(Code_Name, levels = unique(Code_Name[order(Instructor_Student_Factor, Percentage)]))
-    factor(Code_Name, levels = unique(Code_Name[order(Percentage)]))
+  beri_combined = vector("list", length = length(beri))
+  for(i in 1:length(beri)){
+    beri_combined[[i]] = aggregate_beri_observations(beri[[i]])
   }
-  
-  #copus_code_counts = copus_code_counts[order(copus_code_counts$Percentage, copus_code_counts$Instructor_Student_Factor),] #sort by decreasing percentage. But not working
-  gg_activities_bar_beri <-(ggplot(data=beri_agg, aes(x=reorder(Code_Label, Percentage), y=Percentage, fill=Engaged_Factor)) +
-                              geom_bar(stat="identity", color="black") +
-                              #scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
-                              facet_wrap(~Engaged_Factor, nrow=2, scales="free_y") +
-    theme(legend.position = "none", legend.key.width=unit(3,"cm"))) +
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-    coord_flip() +
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-    ggtitle("Engaged & Disengaged Behaviors\nas a Percentage of All Behaviors", subtitle=subtitle) +
-    labs(x="", y="Percentage of Total BERI Codes")  +
-    geom_text(aes(y = Percentage + 3.5,    # nudge above top of bar
-                  label = paste0(round(Percentage, digits=1), '%')),    # prettify
-              position = position_dodge(width = .9), 
-              size = 8)
-  gg_activities_bar_beri
-  return(gg_activities_bar_beri)
+  beri_combined_bound = rbindlist(beri_combined)
+  beri_agg = beri_combined_bound[, list(sum_code_type_count=sum(code_type_count)), by=list(Code, Engaged_Factor)]
+  beri_agg$Percentage = 100*beri_agg$sum_code_type_count/sum(beri_agg$sum_code_type_count)
+  beri_agg$filename = paste0('Averaged across ', length(beri_combined), ' classroom observations')
+  plot_beri_codes_percentage_time_agg(beri_agg, use_color=F)
 }
 
-beri_combined = vector("list", length = length(beri))
-for(i in 1:length(beri)){
-  beri_combined[[i]] = aggregate_beri_observations(beri[[i]])
-}
-beri_combined_bound = rbindlist(beri_combined)
-beri_agg = beri_combined_bound[, list(sum_code_type_count=sum(code_type_count)), by=list(Code, Engaged_Factor)]
-beri_agg$Percentage = 100*beri_agg$sum_code_type_count/sum(beri_agg$sum_code_type_count)
-beri_agg$filename = paste0('Averaged across ', length(beri_combined), ' classroom observations')
-plot_beri_codes_percentage_time_agg(beri_agg, use_color=F)
 
 
+dev.off() # save plots to pdf file. 
 
-dev.off() # save plots to pdf file.
+
+#--------------------------------- Comparing groupings of class section ---------------------------------
 
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-# 
-# #--------------------------------- Large Lectures ---------------------------------
 # #COPUS visuals. Compare large vs. small clasrooms. 
 # 
 # # COPUS: Load and preprocess all files from a directory of large classroom COPUS observations
@@ -862,26 +948,8 @@ dev.off() # save plots to pdf file.
 #      xlab='Enrollment', ylab='Active Code Percentage', main='Active Code Percentages by Enrollment')
 # abline(ape)
 # 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
-# 
 
 
+}
 
-
-
-
-
-
-
+generate_plots(working_dir_filepath)
