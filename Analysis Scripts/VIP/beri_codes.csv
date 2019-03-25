@@ -1,0 +1,13 @@
+Code_Name,Short_Code_Name,Code,Engaged
+Engaged computer use,E. Computer,E:_Comp,1
+Engaged interaction with instructor,E. Instr Int,E:_Instr_Int,1
+Engaged student interaction,E. Student Int,E:_Stud_Int,1
+Listening,Listen,Listen,1
+Reading,Read,Read,1
+Writing,Write,Write,1
+Disengaged computer use,D. Computer,D:_Comp,0
+Disengaged student interaction,D. Student Int,D:_Stud_Int,0
+Distracted by another student,Distracted,Distract,0
+Off-task,Off-task,Off,0
+Settling in / packing up,Settle/Pack,"Settle,_Pack",0
+Unresponsive,Unresponsive,Unresp,0
