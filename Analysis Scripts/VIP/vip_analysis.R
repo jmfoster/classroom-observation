@@ -8,9 +8,9 @@
 
 # Set the instructor_directory variable below to the location of the instructor's data folder on your computer.
 # Within the instructor's folder, put BERI and COPUS observation .csv's in sub folders called BERI and COPUS.
-#instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Andy Martin and Erin Fried/Observations pulled 2018-11-06_Fried_Long' ### MODIFY
-instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Andy Martin and Erin Fried/Observations pulled 2018-11-06_Martin_Long/BERI' ### MODIFY
-#instructor_directory = '~/Google Drive/ASSETT/VIP Service/COPUS Data_Visuals_Reports/Spring 2019/Steve Pollock'
+instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Andy Martin and Erin Fried/Observations pulled 2018-11-06_Fried_Long' ### MODIFY
+#instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Andy Martin and Erin Fried/Observations pulled 2018-11-06_Martin_Long/BERI' ### MODIFY
+#instructor_directory = '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Erin Fried'
 
 
 
@@ -30,7 +30,7 @@ copus_beri_heatmap_low_color = 'beige'; copus_beri_heatmap_high_color = 'red'
 # green/blue
 beri_heatmap_low_color = 'beige'; beri_heatmap_high_color = 'steelblue' 
 #copus_codes_file = "copus_codes.csv"
-copus_codes_file = "copul_codes.csv"
+copus_codes_file = "copus_codes.csv"
 
 #{
 #--------------------------------- Project Setup ---------------------------------
@@ -141,7 +141,33 @@ project_dir = here::here() # save the project's root directory, in order to load
     print('opening pdf file')
     plots_filepath = file.path(instructor_directory, 'figures', plots_filename)
     pdf(plots_filepath, width=12, height=11) #output all figures to pdf instead of displaying them in R
+   }
+  
+  # Extract notes and save to file
+  extract_notes = function(df, copus_or_beri, notes_filepath) {
+    notes_mask = startsWith(as.character(df$Event), 'Notes-')
+    notes = df[notes_mask, ]
+    if(nrow(notes) > 0){
+      notes$Event = gsub("Notes-", "", notes$Event) #strip "Notes-" text
+      notes$pad = "   "
+      #header = paste(copus_or_beri, 'observer notes recorded on', notes$obs_date[1], '\n')
+      header = paste(notes$obs_date[1], copus_or_beri, 'observer notes\n')
+      cat(header, file=notes_filepath, append=TRUE)
+      #writeLines(notes[,c("Time.End", "Event")], con=notes_filepath)
+      write.table(notes[c("pad", "Time.End", "Event")], row.names = F, col.names = F,file= notes_filepath, quote=F, append=T)
+      #close(notes_filename)
+      cat('\n', file=notes_filepath, append=TRUE)
+    }
+    return(df[!notes_mask, ])
   }
+  
+  # open/create notes file
+  dir.create(file.path(instructor_directory, 'figures'), showWarnings = FALSE) # create figures subfolder if it doesn't already exist
+  notes_filename = paste0('notes_', instructor, '_', course, '.txt')
+  notes_filepath = file.path(instructor_directory, 'figures', notes_filename)
+  notes_file = file.create(notes_filepath)
+  if(run_copus) D_copus = lapply(D_copus, extract_notes, 'COPUS', notes_filepath)
+  if(run_beri) D_beri = lapply(D_beri, extract_notes, 'BERI', notes_filepath)
   
   
   # Filter out events that were de-selected, based on their Time.End seconds not being equal to :00 or Time.End minutes being odd (instead of even)
@@ -188,6 +214,7 @@ project_dir = here::here() # save the project's root directory, in order to load
     if(verbose) print(paste("    Removed", pre-post, "rows from", df$filename_long[1]))
     return(df)
   }
+  
   if(run_copus) D_copus = lapply(D_copus, filter_deselected_events, required_number_of_codes_per_interval=2, verbose)
   if(run_beri) D_beri = lapply(D_beri, filter_deselected_events, required_number_of_codes_per_interval=10, verbose)
   
@@ -362,7 +389,11 @@ project_dir = here::here() # save the project's root directory, in order to load
       xmax = max_minutes
       xlab="Minutes"
       ylab = "Engagement"
-      cols = palette()[c(1,2,4,6,7,8,5,3)] #c("black", "red", "blue")p
+      if(length(beri) <= 8){
+        cols = palette()[c(1,2,4,6,7,8,5,3)] #c("black", "red", "blue")p
+      }else{
+        cols = rainbow(length(beri))
+      }
       
       plot(engaged_counts[[1]]$Minutes, engaged_counts[[1]]$engaged_count, xlim=c(xmin, xmax), ylim=c(ymin,ymax), type='l', col=cols[1], xlab=xlab, ylab=ylab, main=title, cex.main=cex.main)#, sub=subtitle)
       for(i in 2:length(beri)){
@@ -837,7 +868,7 @@ project_dir = here::here() # save the project's root directory, in order to load
     dev.off() # save plots to pdf file.
   }
  
-}
+#}
 
 #generate_plots(instructor_directory)
 #}
