@@ -1,19 +1,19 @@
 # clear environment
-rm(list=ls()) # unload/detach all variables
-
-# Set this working_dir_filepath variable to the instructor's folder.
-# Within the instructor's folder, put BERI and COPUS observation .csv's in subfolders called BERI and COPUS.
-  working_dir_filepath = '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/David Paradis/' ### MODIFY
-
+#rm(list=ls()) # unload/detach all variables
 
 # Install and load required packages if not already installed
-required_packages = c('data.table', 'ggplot2', 'grid', 'magrittr', 'dplyr')
+required_packages = c('data.table', 'ggplot2', 'grid', 'magrittr', 'dplyr', 'here', 'rChoiceDialogs')
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(required_packages, character.only=T)
 
+# Set this working_dir_filepath variable to the instructor's folder.
+# Within the instructor's folder, put BERI and COPUS observation .csv's in subfolders called BERI and COPUS.
+#working_dir_filepath = '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/David Paradis/' ### MODIFY
+instructor_dir = choose.dir()
 
 
-generate_plots = function(working_dir_filepath, show_subtitles=T, verbose=F, figures_to_pdf=T) { #put the whole script into this function, so it can be called in one line at the end
+
+generate_plots = function(instructor_dir, show_subtitles=T, verbose=F, figures_to_pdf=T) { #put the whole script into this function, so it can be called in one line at the end
 #--------------------------------- Import classroom observation data ---------------------------------
 #set parameters (debug)
 #show_subtitles <- T
