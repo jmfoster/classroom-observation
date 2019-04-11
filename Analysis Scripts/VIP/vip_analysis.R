@@ -8,10 +8,7 @@
 
 # Set the instructor_directory variable below to the location of the instructor's data folder on your computer.
 # Within the instructor's folder, put BERI and COPUS observation .csv's in sub folders called BERI and COPUS.
-#instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Andy Martin and Erin Fried/Observations pulled 2018-11-06_Fried_Long' ### MODIFY
-#instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Fall 2018/Andy Martin and Erin Fried/Observations pulled 2018-11-06_Martin_Long/BERI' ### MODIFY
-instructor_directory = '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Leilani Arthurs'
-#instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Tyler Denton' ### MODIFY
+instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Tyler Denton' ### MODIFY
 
 
 
@@ -20,13 +17,13 @@ figures_to_pdf = TRUE  # TRUE means send all the figures to a pdf within the ins
                         # FALSE means display the figures as they are created (in the Plots window within R Studio)
 verbose = FALSE  # TRUE means print more diagnostic information in the output of the script. 
                  # FALSE means only print the most important information in the output of the script.
-enforce_completeness = FALSE # TRUE means all observation files must not be missing data from a time period
+enforce_completeness = TRUE # TRUE means all observation files must not be missing data from a time period
                             # FALSE means allow observations to have all data missing from one or more time intervals
-
+axis_text_size = 12 # default 12
 
 # COPUS vs. COPUL mapped codes
 #copus_codes_file = "copus_codes.csv"
-copus_codes_file = "copus_codes.csv"
+copus_codes_file = "copul_codes.csv"
 
 # Heatmap and timeline colors
 copus_beri_heatmap_low_color = 'beige'; copus_beri_heatmap_high_color = 'red'
@@ -485,7 +482,7 @@ project_dir = here::here() # save the project's root directory, in order to load
                     labs(x = "Minutes",y = "") +
                     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                     theme(axis.ticks=element_blank()) +
-                    theme(axis.text=element_text(size=12, color="black")) + #TODO size=12
+                    theme(axis.text=element_text(size=axis_text_size, color="black")) +
                     theme(legend.position = "none"))
       return(gg_copus)
     }
@@ -541,7 +538,7 @@ project_dir = here::here() # save the project's root directory, in order to load
                    labs(x = "Minutes",y = "") +
                    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                    theme(axis.ticks=element_blank()) +
-                   theme(axis.text=element_text(size=12, color="black")) +
+                   theme(axis.text=element_text(size=axis_text_size, color="black")) +
                    theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
       gg_beri
       return(gg_beri)
@@ -619,7 +616,7 @@ project_dir = here::here() # save the project's root directory, in order to load
                            #xlim(0,max(beri$Minutes)) +
                            theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                            theme(axis.ticks=element_blank()) +
-                           theme(axis.text=element_text(size=12, color="black")) +
+                           theme(axis.text=element_text(size=axis_text_size, color="black")) +
                            theme(plot.margin=unit(c(-.4,1,1,1), units='cm')) + 
                            #theme(panel.spacing=unit(.1,'lines')) +
                            theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
@@ -647,77 +644,6 @@ project_dir = here::here() # save the project's root directory, in order to load
       grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse[[1]]), ggplotGrob(gg_beri_timecourse[[2]]), size = "last"))
     }
     mapply(plot_beri_line_and_timecourse_heatmap, gg_beri, gg_beri_timecourse)
-  }
-  
-  #--------------------------------- DEPRECATED Create BERI code by time plot (separate colors for engaged vs. disengaged) ---------------------------------
-  if(run_beri){
-    plot_beri_timecourse = function(beri, use_color=T) {
-      beri$Engaged_Factor = "Disengaged"
-      beri[beri$engaged==1,]$Engaged_Factor = "Engaged"
-      beri$Engaged_Factor = factor(beri$Engaged_Factor, levels=c("Engaged", "Disengaged"))
-      
-      beri = merge(beri, beri_codes, by='Code')
-      beri$Code_Labels = beri$Short_Code_Name
-      
-      #specify colors for engaged vs. disengaged into dataframe itself
-      beri$Engaged_Factor_Colors = beri_heatmap_low_color # for engaged codes. not sure why this is backwards from output
-      beri[as.character(beri$Engaged_Factor)=='Disengaged', ]$Engaged_Factor_Colors = beri_heatmap_high_color
-      
-      #beri[, list(Minutes = seq(0, length(unique(beri$time)))), by=c('time')]
-      minutes_df = data.frame(time = levels(beri$time), Minutes=seq(0, length.out=length(levels(beri$time)), by=2))
-      beri = merge(beri, minutes_df, by='time')
-      
-      subtitle = NULL
-      if(show_subtitles){
-        subtitle = beri$filename[1]
-      }
-      
-      # legend creation hacks (see https://stackoverflow.com/questions/44168996/how-to-create-a-continuous-legend-color-bar-style-for-scale-alpha )
-      #amin = 1
-      #amax = max(beri$code_type_count)
-      #highcol = "black"
-      #lowcol.hex = as.hexmode(round(col2rgb(highcol) * amin + 255 * (amax - amin)))
-      #lowcol = paste0("#",   sep = "", paste(format(lowcol.hex, width = 2), collapse = ""))
-      
-      
-      beri = beri[beri$code_type_count>0,] # restrict to non-zero code counts
-      gg_beri = (ggplot(data = beri, aes(x = as.factor(Minutes), y = Code_Labels, fill=Engaged_Factor_Colors, alpha=as.numeric(code_type_count))) +
-                   #geom_tile(colour="black") + #black box around each cell
-                   geom_tile() + #no black box around each cell
-                   #geom_tile(aes(colour=code_type_count), alpha=0) +
-                   #scale_fill_gradient(low='beige', high=beri$Engaged_Factor_Colors, name="Number of Students") +
-                   #scale_alpha_continuous(beri$code_type_count, range=c(1,max(beri$code_type_count))) +
-                   scale_alpha_continuous(name='Number Engaged or Disengaged') +
-                   #scale_fill_discrete(name='Count') +
-                   #coord_equal() +
-                   facet_wrap(~Engaged_Factor, nrow=2, scales="free_y") +
-                   theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
-                   ggtitle("Engaged & Disengaged Behaviors by Time", subtitle=subtitle) +
-                   labs(x = "Minutes",y = "") +
-                   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
-                   theme(axis.ticks=element_blank()) +
-                   theme(axis.text=element_text(size=12, color="black")) +
-                   #theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
-                   guides(fill=FALSE) + #turn off legend for fill
-                   theme(legend.position="bottom") +
-                   guides(alpha = guide_legend(nrow=1)) 
-                   #guides(alpha=FALSE) +
-                   #scale_color_gradient(high="black", low="white") +
-                   #labs(colour='Number Engaged or Disengaged')
-      )
-      #gg_beri
-      return(gg_beri)
-    }
-    gg_beri_timecourse = lapply(beri, plot_beri_timecourse)
-    #gg_beri_timecourse #plot each classroom observation
-    #i = 1; gg_beri_timecourse[[i]] #plot the i'th particular classroom observation
-    
-    #Plot BERI line above BERI timecourse heatmap
-    plot_beri_line_and_timecourse_heatmap = function(gg_beri, gg_beri_timecourse) {
-      grid.newpage()
-      grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse), size = "last"))
-    }
-    #mapply(plot_beri_line_and_timecourse_heatmap, gg_beri, gg_beri_timecourse)
   }
   
   #--------------------------------- Plot copus heatmap with beri engaged_counts as the heatmap values ---------------------------------
@@ -761,8 +687,8 @@ project_dir = here::here() # save the project's root directory, in order to load
       }
       
       gg_combined = (ggplot(data = combined, aes(x = as.factor(Minutes), y = Code_Name, fill=engaged_count)) +
-                       geom_tile() + #no boxes around each cell
-                       #geom_tile(colour="black") + #put boxes around each cell
+                       #geom_tile() + #no boxes around each cell
+                       geom_tile(colour="black") + #put boxes around each cell
                        scale_fill_gradient(low=low_color, high=high_color, name="Number Engaged") +
                        #scale_fill_hue() + #discrete colors instead of continuous range
                        facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
@@ -771,7 +697,7 @@ project_dir = here::here() # save the project's root directory, in order to load
                        ggtitle("Occurrence of Activity by Time", subtitle=paste("with Student Engagment", subtitle)) +
                        labs(x = "Minutes",y = "") +
                        theme(axis.ticks=element_blank()) +
-                       theme(axis.text=element_text(size=12, color="black")) +
+                       theme(axis.text=element_text(size=axis_text_size, color="black")) +
                        #theme_bw() + #removes background color
                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                        theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
