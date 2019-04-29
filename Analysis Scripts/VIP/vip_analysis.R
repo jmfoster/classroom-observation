@@ -1,51 +1,48 @@
 ### HOW TO USE THIS SCRIPT ###
 #1. Save the VIP project folder (which contains this script) to your computer
 #2. Open the 'VIP.Rproj' file to open this project in R Studio. Do not open the 'vip_analysis.R' script directly, because the script
-#   will not be able to find the required beri_codes.csv and copus_codes.csv files.
+#   will not be able to find the required supporting .csv files (beri_codes.csv, copus_codes.csv, copul_codes.csv, and tdop_codes.csv).
 #3. Change the instructor_directory below to the folder containing the instructor's BERI and/or COPUS observations you want to visualize.
-#4. Run the whole script. If there are warnings or errors, make sure you understand what they mean and resolve them.
+#4. Run the whole script. If there are warnings or errors, make sure you understand what they mean and resolve them. Often resolving the
+#   errors requires fixing the Time.End timestamps in the observation data files so that codes are recorded on correct 2-minute intervals.
 #5. After resolving any warnings or errors, re-run the whole script.
 
 # Set the instructor_directory variable below to the location of the instructor's data folder on your computer.
 # Within the instructor's folder, put BERI and COPUS observation .csv's in sub folders called BERI and COPUS.
-instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Tyler Denton' ### MODIFY
+#instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Tyler Denton' ### MODIFY
+instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Shane Schwikert' ### MODIFY
+#instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Leilani Arthurs' ### MODIFY
 
 
-
-# Set parameters (default is figures_to_pdf = TRUE, verbose = FALSE)
+# Set parameters (default is figures_to_pdf = TRUE, verbose = FALSE, enforce_completeness = TRUE, x_axis_text_size = 12, y_axis_text_size = 12)
 figures_to_pdf = TRUE  # TRUE means send all the figures to a pdf within the instructor_directory specified above. 
                         # FALSE means display the figures as they are created (in the Plots window within R Studio)
 verbose = FALSE  # TRUE means print more diagnostic information in the output of the script. 
                  # FALSE means only print the most important information in the output of the script.
 enforce_completeness = TRUE # TRUE means all observation files must not be missing data from a time period
                             # FALSE means allow observations to have all data missing from one or more time intervals
-axis_text_size = 12 # default 12
+x_axis_text_size = 12  # You can change the size of x-axis text in timecourse figures to accomodate longer classes. Default 12 works for most class durations.
+y_axis_text_size = 12 # You can change the size of y-axis text in timecourse figures to accomodate longer classes. Default 12 works well.
 
-# COPUS vs. COPUL mapped codes
-#copus_codes_file = "copus_codes.csv"
-copus_codes_file = "copul_codes.csv"
 
-# Heatmap and timeline colors
+# COPUS vs. COPUL mapped codes. COPUL re-uses all the existing COPUS code infrastructure, with the only difference 
+# being in the copus_codes_file which maps GORP's COPUS codes to COPUL codes as defined in copul_codes.csv.
+copus_codes_file = "copus_codes.csv"  # copus_codes.csv means use COPUS codes
+                                      # copul_codes.csv means use COPUL codes
+
+# Heatmap and timeline colors and settings
 copus_beri_heatmap_low_color = 'beige'; copus_beri_heatmap_high_color = 'red'
-# see http://colorbrewer2.org/#type=sequential&scheme=YlGnBu&n=3
-# green (light->dark)
-#beri_heatmap_low_color = '#e5f5e0'; beri_heatmap_high_color = '#31a354'
-# green (beige->green)
-#beri_heatmap_low_color = 'beige'; beri_heatmap_high_color = '#31a354'
-# teal/pink
-beri_heatmap_low_color = '#00BFC4'; beri_heatmap_high_color = '#F8766D'
-# orange
-#beri_heatmap_low_color = '#fee6ce'; beri_heatmap_high_color = '#e6550d' 
-# green/blue
-#beri_heatmap_low_color = 'beige'; beri_heatmap_high_color = 'steelblue' 
+beri_heatmap_low_color = '#00BFC4'; beri_heatmap_high_color = '#F8766D'  # low color is for disengaged panel; high color is for engaged panel. 
+minimum_heatmap_lowerbound = 10  # can be used to expand or contract heatmap color range. Default of 10 auto-sets range based on the min count of engagment in the data 
 
-
+# TDOP panel/facet grouping level
+facet_factor = 'Category' # Subcategory or Category. Default is Subcategory
 
 
 #{
 #--------------------------------- Project Setup ---------------------------------
 # Install and load required packages if not already installed
-required_packages = c('data.table', 'ggplot2', 'grid', 'magrittr', 'dplyr', 'here', 'viridis')
+required_packages = c('data.table', 'ggplot2', 'grid', 'magrittr', 'dplyr', 'plyr', 'here', 'viridis')
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(required_packages, character.only=T)
 
@@ -69,21 +66,37 @@ project_dir = here::here() # save the project's root directory, in order to load
     protocol = 'BERI_COPUS'
     run_beri = T
     run_copus = T
+    run_tdop = F
     message('Creating BERI and COPUS visuals.')
+  }else if(dir.exists(file.path(instructor_directory,"BERI")) & dir.exists(file.path(instructor_directory,"TDOP"))){
+    protocol = 'BERI_TDOP'
+    run_beri = T
+    run_copus = F
+    run_tdop = T
+    message('Creating BERI and TDOP visuals.')
   }else if(dir.exists(file.path(instructor_directory,"BERI"))){
     protocol = 'BERI'
     run_beri = T
     run_copus = F
+    run_tdop = F
     message("Creating BERI visuals only. No COPUS folder exists in working directory.")
   }else if(dir.exists(file.path(instructor_directory,"COPUS"))){
     protocol = "COPUS"
     run_beri = F
     run_copus = T
+    run_tdop = F
     message("Creating COPUS visuals only. No BERI folder exists in working directory.")
+  }else if(dir.exists(file.path(instructor_directory,"TDOP"))){
+    protocol = "TDOP"
+    run_beri = F
+    run_copus = F
+    run_tdop = T
+    message("Creating TDOP visuals only. No BERI folder exists in working directory.")
   }else{
     protocol = NA
     run_beri = F
     run_copus = F
+    run_tdop = F
     stop("No BERI or COPUS data folders exist in working directory. No visuals created.")
   }
   
@@ -130,6 +143,16 @@ project_dir = here::here() # save the project's root directory, in order to load
     course = D_beri[[1]]$course[1] #pull out instructor name
   }
   
+  # TDOP: Load all files from a directory of TDOP observations
+  if(run_tdop){
+    tdop_dir = file.path(instructor_directory, "TDOP")
+    tdop_filenames <- list.files(tdop_dir, pattern="*.csv", full.names=TRUE)
+    D_tdop = lapply(tdop_filenames, read_plus) # keep each classroom observation in its own df
+    D_tdop = lapply(D_tdop, extract_observation_metadata)
+    instructor = D_tdop[[1]]$instructor[1] #pull out instructor name
+    course = D_tdop[[1]]$course[1] #pull out instructor name
+  }
+  
   
   # Check that dates align between BERI and COPUS observation files
   if(run_beri & run_copus){
@@ -144,6 +167,19 @@ project_dir = here::here() # save the project's root directory, in order to load
     }
   }
   
+  # Check that dates align between BERI and TDOP observation files
+  if(run_beri & run_tdop){
+    if(length(D_tdop) != length(D_beri)) {
+      stop('unequal numbers of BERI and TDOP observations')
+    }else{
+      for(i in 1:length(D_tdop)) {
+        if(D_tdop[[i]]$obs_date[1] != D_beri[[i]]$obs_date[1]){
+          stop('BERI and TDOP observation dates do not align')
+        }
+      }
+    }
+  }
+  
    # Prepare to output figures to pdf file in figures folder within instructor_directory
    if(figures_to_pdf){
     dir.create(file.path(instructor_directory, 'figures'), showWarnings = FALSE) # create figures subfolder if it doesn't already exist
@@ -153,15 +189,15 @@ project_dir = here::here() # save the project's root directory, in order to load
     pdf(plots_filepath, width=12, height=11) #output all figures to pdf instead of displaying them in R
    }
   
-  # Extract notes and save to file
-  extract_notes = function(df, copus_or_beri, notes_filepath) {
+  # Extract notes and save to file 
+  extract_notes = function(df, protocol_name, notes_filepath) {
     notes_mask = startsWith(as.character(df$Event), 'Notes-')
     notes = df[notes_mask, ]
     if(nrow(notes) > 0){
       notes$Event = gsub("Notes-", "", notes$Event) #strip "Notes-" text
       notes$pad = "   "
-      #header = paste(copus_or_beri, 'observer notes recorded on', notes$obs_date[1], '\n')
-      header = paste(notes$obs_date[1], copus_or_beri, 'observer notes\n')
+      #header = paste(protocol_name, 'observer notes recorded on', notes$obs_date[1], '\n')
+      header = paste(notes$obs_date[1], protocol_name, 'observer notes\n')
       cat(header, file=notes_filepath, append=TRUE)
       #writeLines(notes[,c("Time.End", "Event")], con=notes_filepath)
       write.table(notes[c("pad", "Time.End", "Event")], row.names = F, col.names = F,file= notes_filepath, quote=F, append=T)
@@ -178,7 +214,7 @@ project_dir = here::here() # save the project's root directory, in order to load
   notes_file = file.create(notes_filepath)
   if(run_copus) D_copus = lapply(D_copus, extract_notes, 'COPUS', notes_filepath)
   if(run_beri) D_beri = lapply(D_beri, extract_notes, 'BERI', notes_filepath)
-  
+  if(run_tdop) D_tdop = lapply(D_tdop, extract_notes, 'TDOP', notes_filepath) # extract_notes only works with GORP output
   
   # Filter out events that were de-selected, based on their Time.End seconds not being equal to :00 or Time.End minutes being odd (instead of even)
   # note: last interval of observation has variable Time.End, and is currently excluded from analysis
@@ -229,26 +265,39 @@ project_dir = here::here() # save the project's root directory, in order to load
   
   if(run_copus) D_copus = lapply(D_copus, filter_deselected_events, required_number_of_codes_per_interval=2, verbose)
   if(run_beri) D_beri = lapply(D_beri, filter_deselected_events, required_number_of_codes_per_interval=10, verbose)
+  if(run_tdop) D_tdop = lapply(D_tdop, filter_deselected_events, required_number_of_codes_per_interval=1, verbose)
   
   # Find common start and end times
-  filter_nonintersecting_times = function(df_beri, df_copus) {
-    df_copus$time = strptime(df_copus$Time.End, format="%I:%M:%S %p")
+  filter_nonintersecting_times = function(df_beri, df_copus_or_tdop) {
+    df_copus_or_tdop$time = strptime(df_copus_or_tdop$Time.End, format="%I:%M:%S %p")
     df_beri$time = strptime(df_beri$Time.End, format="%I:%M:%S %p")
-    #df_copus$time = as.character(df_copus$Time.End) # Format time as string
+    #df_copus_or_tdop$time = as.character(df_copus_or_tdop$Time.End) # Format time as string
     #df_beri$time = as.character(df_beri$Time.End) # Format time as string
-    start_time = min(intersect(df_copus$time, df_beri$time))
-    end_time = max(intersect(df_copus$time, df_beri$time))
+    start_time = min(intersect(df_copus_or_tdop$time, df_beri$time))
+    end_time = max(intersect(df_copus_or_tdop$time, df_beri$time))
     # keep only observations which intersect in time
-    df_copus = df_copus[df_copus$time>=start_time & df_copus$time<=end_time,]
+    df_copus_or_tdop = df_copus_or_tdop[df_copus_or_tdop$time>=start_time & df_copus_or_tdop$time<=end_time,]
     df_beri = df_beri[df_beri$time>=start_time & df_beri$time<=end_time,]
-    return(list(df_beri, df_copus))
+    return(list(df_beri, df_copus_or_tdop))
   }
+  
   #Check that BERI and COPUS data have equal observation pairings
   if(run_beri & run_copus){
     if(length(D_copus)==length(D_beri)) {
       D_combined = mapply(filter_nonintersecting_times, D_beri, D_copus)
       D_beri = D_combined[1,]
       D_copus = D_combined[2,]
+    }else{
+      stop("Error: unequal pairings of copus and beri observations")
+    }
+  }
+  
+  #Check that BERI and TDOP data have equal observation pairings
+  if(run_beri & run_tdop){
+    if(length(D_tdop)==length(D_beri)) {
+      D_combined = mapply(filter_nonintersecting_times, D_beri, D_tdop)
+      D_beri = D_combined[1,]
+      D_tdop = D_combined[2,]
     }else{
       stop("Error: unequal pairings of copus and beri observations")
     }
@@ -329,8 +378,6 @@ project_dir = here::here() # save the project's root directory, in order to load
         print(dt[is.na(dt$Code_Name)])
       }
       
-      
-      
       #convert copus time sequence to minutes numbering (relies on consecutive time sequences)
       dt$Minutes = 0
       for(i in 2:nrow(dt)) {
@@ -345,6 +392,36 @@ project_dir = here::here() # save the project's root directory, in order to load
     }
     copus = lapply(D_copus, aggregate_data_copus)
   }
+  
+  #--------------------------------- Compile Individual Coder Data (TDOP) ---------------------------------
+  if(run_tdop){
+    tdop_codes = read.csv(file.path(project_dir, "tdop_codes.csv"), header=T)
+    aggregate_tdop_data = function(D){
+      dt = D
+      dt = merge(dt, tdop_codes, by='Code')
+      
+      dt$time = as.character(dt$Time.End)
+      #convert tdop time sequence to minutes numbering (relies on consecutive time sequences)
+      dt = dt[order(as.POSIXct(dt$time, format="%I:%M:%S %p")),]
+      dt$Minutes = 0
+      for(i in 2:nrow(dt)) {
+        if(dt[i,"Time.End"] == dt[i-1,"Time.End"]) {
+          dt[i,"Minutes"] = dt[i-1,"Minutes"]
+        }else{
+          dt[i,"Minutes"] = dt[i-1,"Minutes"]+2
+        }
+      }
+      
+      if(nrow(dt[is.na(dt$Code_Name),]) > 0){
+        stop(paste("Unknown Codes in file", dt$filename[1], ":", dt[is.na(dt$Code_Name)]$Code, "\n"))
+        print(dt[is.na(dt$Code_Name)])
+      }
+      
+      return(dt)
+    } 
+    tdop = lapply(D_tdop, aggregate_tdop_data)
+  }
+    
   
   #--------------------------------- Create beri line graph ---------------------------------
   if(run_beri){
@@ -482,7 +559,8 @@ project_dir = here::here() # save the project's root directory, in order to load
                     labs(x = "Minutes",y = "") +
                     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                     theme(axis.ticks=element_blank()) +
-                    theme(axis.text=element_text(size=axis_text_size, color="black")) +
+                    theme(axis.text.x=element_text(size=x_axis_text_size, color="black")) +
+                    theme(axis.text.y=element_text(size=y_axis_text_size, color="black")) +
                     theme(legend.position = "none"))
       return(gg_copus)
     }
@@ -500,6 +578,71 @@ project_dir = here::here() # save the project's root directory, in order to load
     }
     mapply(plot_beri_and_copus, gg_beri, gg_copus)
   }
+  
+  
+  #--------------------------------- Create tdop activity by time plot ---------------------------------
+  if(run_tdop){
+    plot_tdop_timecourse = function(tdop, facet_factor="Subcategory", fill_factor="Category") {
+                                          #facet_factor can be "Category" or "Subcategory"
+
+      tdop$Category = factor(tdop$Category)
+      tdop$Subcategory = factor(tdop$Subcategory)
+      
+      subtitle = NULL
+      if(show_subtitles){
+        subtitle = tdop$filename[1]
+        #subtitle = "Subcategory labels on top"
+      }
+      
+      tdop$Minutes = as.factor(tdop$Minutes)
+
+      
+      gg_tdop = (ggplot(data = tdop, aes_string(x = "Minutes", y = "Short_Code", fill=fill_factor)) +
+                   geom_tile(colour="black") +
+                   scale_fill_discrete(guide=FALSE) +
+                   #coord_equal() +
+                   #facet_wrap(~Category, nrow=length(unique(tdop$Category)), scales="free_y") +
+                   theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+                   ggtitle("Occurrence of Activity by Time", subtitle=subtitle) +
+                   labs(x = "Minutes",y = "") +
+                   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+                   theme(axis.ticks=element_blank()) +
+                   theme(axis.text=element_text(size=12, color="black")) + #TODO size=12
+                   theme(legend.position = "none") +
+                   #facet_grid(Category ~ ., scales = "free_y", space = "free_y")) #+
+                   facet_wrap(as.formula(paste("~", facet_factor)), ncol=1, scales = "free_y"))
+      #theme(strip.placement = "top")
+      
+      g1 = ggplotGrob(gg_tdop) 
+      
+      # From 'df', get the number of unique codes  for each Category (facet)'.
+      # That is, the number y-breaks in each panel.
+      if(facet_factor=='Subcategory'){
+        N = dlply(tdop, .(Subcategory), function(x) length(unique(x$Code)))
+      }else{
+        N = dlply(tdop, .(Category), function(x) length(unique(x$Code)))
+      }
+      
+      # Get the items in the g1 layout corresponding to the panels.
+      panels1 <- g1$layout$t[grepl("panel", g1$layout$name)]
+      
+      # Replace the default panel heights with relative heights
+      g1$heights[panels1] <- unit(N, "null")
+      
+      ## Draw g1
+      grid.newpage()
+      grid.draw(g1)
+      
+      #return(g1)
+      #return(gg_tdop)
+    }
+    #lapply(tdop, plot_tdop_timecourse)
+    #tdop = D_long
+    gg_tdop_timecourse = lapply(tdop, plot_tdop_timecourse, facet_factor=facet_factor)
+    #gg_tdop_timecourse
+ 
+  }
+  
   #--------------------------------- DEPRECATED: Create BERI code by time plot (combined engaged and disengaged) ---------------------------------
   if(run_beri){
     plot_beri_timecourse = function(beri, use_color=T) {
@@ -538,7 +681,8 @@ project_dir = here::here() # save the project's root directory, in order to load
                    labs(x = "Minutes",y = "") +
                    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                    theme(axis.ticks=element_blank()) +
-                   theme(axis.text=element_text(size=axis_text_size, color="black")) +
+                   theme(axis.text.x=element_text(size=x_axis_text_size, color="black")) +
+                   theme(axis.text.y=element_text(size=y_axis_text_size, color="black")) +
                    theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
       gg_beri
       return(gg_beri)
@@ -598,6 +742,7 @@ project_dir = here::here() # save the project's root directory, in order to load
                    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                    theme(axis.ticks=element_blank()) +
                    theme(axis.text.x=element_blank()) +
+                   theme(axis.text.y=element_text(size=y_axis_text_size, color="black")) +
                    theme(plot.margin=unit(c(1,1,-.4,1), units='cm')) +  #t,r,b,l dimension order
                    #theme(panel.spacing=unit(.1,'lines')) +
                    theme(legend.position = "top", legend.key.width=unit(3,"cm")))
@@ -616,7 +761,8 @@ project_dir = here::here() # save the project's root directory, in order to load
                            #xlim(0,max(beri$Minutes)) +
                            theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                            theme(axis.ticks=element_blank()) +
-                           theme(axis.text=element_text(size=axis_text_size, color="black")) +
+                           theme(axis.text.x=element_text(size=x_axis_text_size, color="black")) +
+                           theme(axis.text.y=element_text(size=y_axis_text_size, color="black")) +
                            theme(plot.margin=unit(c(-.4,1,1,1), units='cm')) + 
                            #theme(panel.spacing=unit(.1,'lines')) +
                            theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
@@ -689,7 +835,7 @@ project_dir = here::here() # save the project's root directory, in order to load
       gg_combined = (ggplot(data = combined, aes(x = as.factor(Minutes), y = Code_Name, fill=engaged_count)) +
                        #geom_tile() + #no boxes around each cell
                        geom_tile(colour="black") + #put boxes around each cell
-                       scale_fill_gradient(low=low_color, high=high_color, name="Number Engaged") +
+                       scale_fill_gradient(limits=c(min(minimum_heatmap_lowerbound, min(combined$engaged_count)), max(combined$engaged_count)), low=low_color, high=high_color, name="Number Engaged") +
                        #scale_fill_hue() + #discrete colors instead of continuous range
                        facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
                        #coord_equal() + #square instead of rectangular cells
@@ -697,7 +843,8 @@ project_dir = here::here() # save the project's root directory, in order to load
                        ggtitle("Occurrence of Activity by Time", subtitle=paste("with Student Engagment", subtitle)) +
                        labs(x = "Minutes",y = "") +
                        theme(axis.ticks=element_blank()) +
-                       theme(axis.text=element_text(size=axis_text_size, color="black")) +
+                       theme(axis.text.x=element_text(size=x_axis_text_size, color="black")) +
+                       theme(axis.text.y=element_text(size=y_axis_text_size, color="black")) +
                        #theme_bw() + #removes background color
                        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
                        theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
@@ -721,6 +868,118 @@ project_dir = here::here() # save the project's root directory, in order to load
       grid.draw(rbind(ggplotGrob(gg_beri[[i]]), ggplotGrob(gg_combined[[i]]), size = "last"))
     }
   }
+  
+  #--------------------------------- Plot tdop heatmap with beri engaged_counts as the heatmap values ---------------------------------
+  if(run_beri & run_tdop){
+    plot_beri_and_tdop_heatmap = function(beri, tdop, facet_factor="Subcategory", use_color=T) {
+      #copus$Instructor_Student_Factor = factor(copus$Instructor_Student, levels=c("Student", "Instructor"))
+      
+      engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+      engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
+      
+      #sanity checks
+      #if(nrow(merge(tdop, engaged_counts, by=c("Minutes", "time"))) != nrow(merge(tdop, engaged_counts, by=c("time")))) {
+      #  if(enforce_completeness){
+      #    stop(paste("Either tdop or beri data is missing data from a time period. Files:",beri$filename[1], tdop$filename[1]))
+      #  }
+      #}
+      
+      #combined = merge(tdop, engaged_counts, by=c("time", "Minutes"), all=TRUE)
+      combined = merge(tdop, engaged_counts, by=c("Minutes"), all=TRUE)
+      #combined$Minutes = seq(0,2*(nrow(combined)-1),2)
+      
+    
+      if(use_color) {
+        low_color = copus_beri_heatmap_low_color
+        high_color = copus_beri_heatmap_high_color
+      }else{
+        low_color = "white"
+        high_color = "black"
+      }
+      
+      subtitle = NULL
+      if(show_subtitles){
+        #subtitle = paste0( "\n", copus$filename[1], "\n", beri$filename[1])
+        subtitle = paste0( "\n", tdop$filename[1])
+      }
+      
+      gg_combined = (ggplot(data = combined, aes(x = as.factor(Minutes), y = Short_Code, fill=engaged_count)) +
+                       #geom_tile() + #no boxes around each cell
+                       geom_tile(colour="black") + #put boxes around each cell
+                       scale_fill_gradient(limits=c(min(minimum_heatmap_lowerbound, min(combined$engaged_count)), max(combined$engaged_count)), low=low_color, high=high_color, name="Number Engaged") +
+                       #scale_fill_hue() + #discrete colors instead of continuous range
+                       facet_wrap(as.formula(paste("~", facet_factor)), ncol=1, scales="free_y") +
+                       #coord_equal() + #square instead of rectangular cells
+                       theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+                       #ggtitle("Occurrence of Activity by Time", subtitle=paste("with Student Engagment", subtitle)) +
+                       ggtitle("") +
+                       labs(x = "Minutes",y = "") +
+                       theme(axis.ticks=element_blank()) +
+                       theme(axis.text.x=element_text(size=x_axis_text_size, color="black")) +
+                       theme(axis.text.y=element_text(size=y_axis_text_size, color="black")) +
+                       #theme_bw() + #removes background color
+                       theme(plot.margin=unit(c(-.5,1,1,1), units='cm')) +  #t,r,b,l dimension order
+                       theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+                       theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
+      
+      
+      g1 = ggplotGrob(gg_combined) 
+      
+      adjust_panel_heights = T
+      beri_tdop_panel_heights_factor = 3 # 4 seems to produce good relative heights in beri/tdop combined plot. may need adjustment for other datasets
+      if(adjust_panel_heights){
+        
+        # From 'df', get the number of unique codes  for each Category (facet)'.
+        # That is, the number y-breaks in each panel.
+        if(facet_factor=='Subcategory'){
+          N = dlply(tdop, .(Subcategory), function(x) length(unique(x$Short_Code)))
+        }else{
+          N = dlply(tdop, .(Category), function(x) length(unique(x$Short_Code)))
+        }
+          
+        # adjust panel heights relative to beri line plot for combined plotting
+         N = lapply(N, function(x) x/beri_tdop_panel_heights_factor)
+        
+        # Get the items in the g1 layout corresponding to the panels.
+        panels1 <- g1$layout$t[grepl("panel", g1$layout$name)]
+        
+        # Replace the default panel heights with relative heights
+        g1$heights[panels1] <- unit(N, "null")
+      }
+      
+      return(g1)
+      
+      
+    }
+    #i=2
+    #plot_beri_and_copus_heatmap(beri[[i]], copus[[i]])
+    
+    gg_combined = vector("list", length = length(beri))
+    for(i in 1:length(beri)){
+      gg_combined[[i]] = plot_beri_and_tdop_heatmap(beri[[i]], tdop[[i]], facet_factor=facet_factor)
+    }
+    
+    #gg_combined
+    for(i in 1:length(beri)) {
+      subtitle = paste0("\n",beri[[i]]$filename[1])
+      gg_beri_for_heatmap = gg_beri[[i]] + 
+                            labs(x="") + 
+                            ggtitle("Occurrence of Activity by Time", subtitle=paste("with Student Engagment", subtitle)) +
+                            theme(plot.margin=unit(c(1,1,-.5,1), units='cm')) +  #t,r,b,l dimension order
+      grid.newpage()
+      #g_beri_tdop_combined = rbind(ggplotGrob(gg_beri_for_heatmap), gg_combined[[i]], size = "last")
+      #g_beri_tdop_combined <- set_panel_heights(g_beri_tdop_combined, list(unit(1,"null"), unit(1,"null")))
+      
+      #g_beri_tdop_combined = arrangeGrob(ggplotGrob(gg_beri_for_heatmap), gg_combined[[i]], ncol=1, heights=unit(c(.5, 2),c("null", "null")))
+      #grid.draw(g_beri_tdop_combined)
+      #grid.draw(rbind(ggplotGrob(gg_beri_for_heatmap), gg_combined[[i]], size = "last"))
+      grid.draw(rbind(ggplotGrob(gg_beri_for_heatmap), gg_combined[[i]], size = "last"))
+      
+    }
+  }
+  
+  
+  
   #--------------------------------- Activities graphs ---------------------------------
   if(run_beri & run_copus){
     # Plot activity as a percentage of total class time
@@ -756,7 +1015,7 @@ project_dir = here::here() # save the project's root directory, in order to load
       
       gg_activities_bar_time <-(ggplot(data=copus_code_counts, aes(x=reorder(Code_Name, Percentage), y=Percentage, fill=mean_engaged_count)) +
                                   geom_bar(stat="identity", color="black") +
-                                  scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                                  scale_fill_gradient(limits=c(min(minimum_heatmap_lowerbound, min(copus_code_counts$mean_engaged_count)), max(copus_code_counts$mean_engaged_count)), low=low_color,high=high_color, name='Number Engaged (avg)') +
                                   facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
                                   theme(legend.position = "bottom", legend.key.width=unit(3,"cm"))) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
@@ -874,7 +1133,7 @@ project_dir = here::here() # save the project's root directory, in order to load
       #copus_code_counts = copus_code_counts[order(copus_code_counts$Percentage, copus_code_counts$Instructor_Student_Factor),] #sort by decreasing percentage. But not working
       gg_activities_bar_time <-(ggplot(data=copus_code_counts, aes(x=reorder_percentage(Code_Name, Instructor_Student_Factor, Percentage), y=Percentage, fill=mean_engaged_count)) +
                                   geom_bar(stat="identity", color="black") +
-                                  scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                                  scale_fill_gradient(limits=c(min(minimum_heatmap_lowerbound, min(copus_code_counts$mean_engaged_count)), max(copus_code_counts$mean_engaged_count)), low=low_color,high=high_color, name='Number Engaged (avg)') +
                                   facet_wrap(~Instructor_Student_Factor, nrow=2, scales="free_y") +
                                   theme(legend.position = "bottom", legend.key.width=unit(3,"cm"))) +
         theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
