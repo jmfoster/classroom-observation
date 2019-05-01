@@ -374,7 +374,7 @@ project_dir = here::here() # save the project's root directory, in order to load
       dt = merge(dt, copus_codes[,c("Event", "Code_Name")], by=c("Event"), all.x=TRUE)
       dt = dt[order(as.POSIXct(dt$time, format="%I:%M:%S %p")),]
       if(nrow(dt[is.na(dt$Code_Name)]) > 0){
-        stop(paste("Unknown Codes in file", D$filename[1], ":", dt[is.na(dt$Code_Name)]$Code, "\n"))
+        stop(paste("Unknown Codes in file", D$filename[1], ":", dt[is.na(dt$Code_Name),]$Code, "\n"))
         print(dt[is.na(dt$Code_Name)])
       }
       
@@ -398,7 +398,14 @@ project_dir = here::here() # save the project's root directory, in order to load
     tdop_codes = read.csv(file.path(project_dir, "tdop_codes.csv"), header=T)
     aggregate_tdop_data = function(D){
       dt = D
-      dt = merge(dt, tdop_codes, by='Code')
+      #rows_before_merge = nrow(dt)
+      dt = merge(dt, tdop_codes, by='Code', all.x=TRUE)
+      #rows_after_merge = nrow(dt)
+      
+      #if(rows_after_merge != rows_before_merge){
+      #  stop(paste("Unknown Codes in file", dt$filename_long[1], "\n"))
+      #}
+      
       
       dt$time = as.character(dt$Time.End)
       #convert tdop time sequence to minutes numbering (relies on consecutive time sequences)
@@ -413,7 +420,7 @@ project_dir = here::here() # save the project's root directory, in order to load
       }
       
       if(nrow(dt[is.na(dt$Code_Name),]) > 0){
-        stop(paste("Unknown Codes in file", dt$filename[1], ":", dt[is.na(dt$Code_Name)]$Code, "\n"))
+        stop(paste("Unknown Codes in file", dt$filename_long[1], ":", dt[is.na(dt$Code_Name),]$Code, "\n"))
         print(dt[is.na(dt$Code_Name)])
       }
       
@@ -714,9 +721,9 @@ project_dir = here::here() # save the project's root directory, in order to load
       beri = merge(beri, minutes_df, by='time')
       
       subtitle = NULL
-      if(show_subtitles){
-        subtitle = beri$filename[1]
-      }
+      #if(show_subtitles){
+      #  subtitle = beri$filename[1]
+      #}
       
       #if(use_color) {
       #  low_color = beri_heatmap_low_color
@@ -1037,7 +1044,8 @@ project_dir = here::here() # save the project's root directory, in order to load
     }
     gg_activities_percentage_time
   }
-  #--------------------------------- Aggregate Across Observations ---------------------------------
+  
+  #--------------------------------- Aggregate Across COPUS Observations ---------------------------------
   if(run_copus){
     # Activity as a Percentage of Class Time (COPUS only)
     aggregate_copus_observations = function(copus) {
@@ -1091,6 +1099,7 @@ project_dir = here::here() # save the project's root directory, in order to load
     gg_copus_agg
   }
   
+  #--------------------------------- Aggregate Across BERI + COPUS Observations ---------------------------------
   # Activity as a Percentage of Class Time HEATMAP (beri + copus)
   if(run_beri & run_copus){
     aggregate_copus_beri_observations = function(beri, copus) {
@@ -1163,7 +1172,9 @@ project_dir = here::here() # save the project's root directory, in order to load
     plot_copus_beri_activities_percentage_time_agg(copus_beri_agg)
   }
   #names(copus_beri_combined_bound)
+ 
   
+  #--------------------------------- Aggregate Across BERI Observations ---------------------------------
   # BERI Codes as a Percentage of total beri codes
   if(run_beri){
     aggregate_beri_observations = function(beri) {
@@ -1218,7 +1229,7 @@ project_dir = here::here() # save the project's root directory, in order to load
                       label = paste0(round(Percentage, digits=1), '%')),    # prettify
                   position = position_dodge(width = .9),
                   size = 8)
-      gg_activities_bar_beri
+      #gg_activities_bar_beri
       return(gg_activities_bar_beri)
     }
     
@@ -1230,8 +1241,19 @@ project_dir = here::here() # save the project's root directory, in order to load
     beri_agg = beri_combined_bound[, list(sum_code_type_count=sum(code_type_count)), by=list(Code, Engaged_Factor)]
     beri_agg$Percentage = 100*beri_agg$sum_code_type_count/sum(beri_agg$sum_code_type_count)
     beri_agg$filename = paste0('Averaged across ', length(beri_combined), ' classroom observations')
-    plot_beri_codes_percentage_time_agg(beri_agg, use_color=F)
+    gg_activities_bar_beri = plot_beri_codes_percentage_time_agg(beri_agg, use_color=F)
+    gg_activities_bar_beri
   }
+  
+  #--------------------------------- Aggregate Across TDOP Observations ---------------------------------
+  
+  
+  
+  
+  
+  
+  
+  
   
   if(figures_to_pdf){
     print(paste0('Saving visuals to file: ', plots_filepath))

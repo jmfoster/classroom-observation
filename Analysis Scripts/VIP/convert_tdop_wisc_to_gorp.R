@@ -13,8 +13,7 @@ figures_to_pdf = F
 
 project_dir = here::here() # save the project's root directory, in order to load helper files (copus_codes.csv and beri_codes.csv)
 
-# convert TDOP data from Wisconsin's interface to GORP-style row-wise data 
-
+#--------------------------------- Convert TDOP data from Wisconsin's interface to GORP-style row-wise data  ---------------------------------
 
 #extract date, course name, instructor, and observer from filename
 course = NULL
@@ -41,14 +40,6 @@ if(run_tdop){
   #D_tdop = lapply(D_tdop, extract_observation_metadata)
 }
 
-
-# if(figures_to_pdf){
-#   dir.create(file.path(instructor_directory, 'figures'), showWarnings = FALSE) # create figures subfolder if it doesn't already exist
-#   plots_filename = paste0('plots_', instructor, '_', course, '.pdf')
-#   print('opening pdf file')
-#   plots_filepath = file.path(instructor_directory, 'figures', plots_filename)
-#   pdf(plots_filepath, width=12, height=11) #output all figures to pdf instead of displaying them in R
-# }
 
 # load tdop_codes
 tdop_codes = read.csv(file.path(project_dir, 'tdop_codes.csv'), header=T)
@@ -100,10 +91,10 @@ convert_wisconsic_data_to_gorp_data = function(D, start_time, observation_date, 
   return(D_long)
 }
 
-#start_times = list(as.ITime("3:32:00 PM")) # define list of start times for each observation
-start_times = list("3:32:00 PM")
-observation_dates = list("2019-04-09")
-course_names = list("Intro to Cognitive Psychology")
+# define list of start times, observation dates, and course names for each observation
+start_times = list("3:32:00 PM", "3:36:00 PM", "3:36:00 PM")
+observation_dates = list("2019-04-09", "2019-04-11", "2019-04-25")
+course_names = list("Intro to Cognitive Psychology", "Intro to Cognitive Psychology", "Intro to Cognitive Psychology")
 tdop = mapply(convert_wisconsic_data_to_gorp_data, D_tdop, start_times, observation_dates, course_names, SIMPLIFY = FALSE)
 
 
