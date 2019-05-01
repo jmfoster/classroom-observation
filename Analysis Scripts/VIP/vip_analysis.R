@@ -9,7 +9,7 @@
 
 # Set the instructor_directory variable below to the location of the instructor's data folder on your computer.
 # Within the instructor's folder, put BERI and COPUS observation .csv's in sub folders called BERI and COPUS.
-#instructor_directory =  '/Users/jmf/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Tyler Denton' ### MODIFY
+#instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Janet Casagrand' ### MODIFY
 instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Shane Schwikert' ### MODIFY
 #instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Leilani Arthurs' ### MODIFY
 
@@ -1246,9 +1246,183 @@ project_dir = here::here() # save the project's root directory, in order to load
   }
   
   #--------------------------------- Aggregate Across TDOP Observations ---------------------------------
+  if(run_tdop){
+    # Activity as a Percentage of Class Time (TDOP only)
+    aggregate_tdop_observations = function(tdop, facet_factor) {
+      tdop = data.table(tdop)
+      #tdop$Instructor_Student_Factor = factor(tdop$Instructor_Student, levels=c("Student", "Instructor"))
+      tdop$code_type_count = 1
+      #tdop[Instructor_Student=="Instructor", "code_type_count"]=2
+      tdop_code_counts = tdop[, list(Code_Count=.N), by=list(get(facet_factor), Code, Short_Code, Code_Name, code_type_count)]
+      tdop_code_counts = setnames(tdop_code_counts, 'get', 'facet_factor') # rename 'get' column
+      tdop_code_counts$N_TimePeriods = length(unique(tdop$Minutes))
+      #tdop_code_counts$Percentage = 100*tdop_code_counts$Code_Count/length(unique(tdop$Minutes))
+      tdop_code_counts$filename = tdop$filename[1]
+      #if(!is.null(tdop$enrollment[1])){
+      #  tdop_code_counts$enrollment = tdop$enrollment[1]
+      #}else{
+      #  tdop_code_counts$enrollment = NA
+      #}
+      return(tdop_code_counts)
+    }
+    
+    plot_tdop_activities_percentage_time = function(tdop_code_counts) {
+      
+      subtitle = tdop_code_counts$filename[1]
+      
+      gg_activities_bar <-(ggplot(data=tdop_code_counts, aes(x=reorder(Short_Code, Percentage), y=Percentage, fill=facet_factor)) +
+                             geom_bar(stat="identity", color="black") +
+                             scale_fill_discrete(guide=FALSE) +
+                             #scale_fill_gradient(low="red", high="steelblue") +
+                             #scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                             facet_wrap(~facet_factor, ncol=1, scales="free_y") +
+                             theme(legend.position = "bottom")) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+        coord_flip() +
+        theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+        ggtitle("Activity as a Percentage of Total Class Time", subtitle=subtitle) +
+        labs(x="", y="Percentage of Total Class Time")  +
+        theme(legend.position = "none") +
+        geom_text(aes(y = Percentage + 3,    # nudge above top of bar (between about 3.0 and 4.0)
+                      label = paste0(round(Percentage, digits=0), '%')),    # prettify
+                  position = position_dodge(width = .9),
+                  size = 5)
+      #gg_activities_bar
+      
+      g1 = ggplotGrob(gg_activities_bar) 
+      
+      adjust_panel_heights = T
+      if(adjust_panel_heights){
+        
+        # From 'df', get the number of unique codes  for each Category (facet)'.
+        # That is, the number y-breaks in each panel.
+        N = dlply(tdop_code_counts, .(facet_factor), function(x) length(unique(x$Short_Code)))
+        
+        # Get the items in the g1 layout corresponding to the panels.
+        panels1 <- g1$layout$t[grepl("panel", g1$layout$name)]
+        
+        # Replace the default panel heights with relative heights
+        g1$heights[panels1] <- unit(N, "null")
+      }
+      
+      #return(g1)
+      grid.newpage()
+      grid.draw(g1)
+    }
+    
+    #plot average across observations. # The following note is outdated, because now all 2-min time periods are weighted equally: Note: Percentages are averaged over number of classroom observations, weighting each observation equally (as opposed to greater weighting for observations with more 2-min time periods)
+    tdop_code_counts = lapply(tdop, aggregate_tdop_observations, facet_factor=facet_factor)
+    tdop_code_counts_bound = rbindlist(tdop_code_counts)
+    #tdop_code_counts_agg = tdop_code_counts_bound[, list(Percentage=round(sum(Percentage)/length(tdop_code_counts)), 0), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
+    tdop_code_counts_agg = tdop_code_counts_bound[, list(Code_Count=sum(Code_Count), 0), by=list(Code, facet_factor, Short_Code, Code_Name, code_type_count)]
+    tdop_code_counts_agg$Percentage = 100*tdop_code_counts_agg$Code_Count / sum(unique(tdop_code_counts_bound[,c("N_TimePeriods", "filename")])$N_TimePeriods)
+    tdop_code_counts_agg$filename = paste0('Averaged across ', length(tdop_code_counts), ' classroom observations')
+    gg_tdop_agg = plot_tdop_activities_percentage_time(tdop_code_counts_agg)
+    #gg_tdop_agg
+  }
   
   
-  
+  #--------------------------------- Aggregate Across BERI + TDOP Observations ---------------------------------
+  if(run_beri & run_tdop){
+    # Activity as a Percentage of Class Time HEATMAP (BERI + TDOP only)
+    aggregate_tdop_beri_observations = function(tdop, beri) {
+      tdop = data.table(tdop)
+      #tdop$Instructor_Student_Factor = factor(tdop$Instructor_Student, levels=c("Student", "Instructor"))
+      tdop$code_type_count = 1
+      #tdop[Instructor_Student=="Instructor", "code_type_count"]=2
+      
+      engaged_counts = beri[engaged==1, list(engaged_count=sum(code_type_count)), by=time]
+      engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
+      
+      tdop_beri_combined = merge(tdop, engaged_counts, by=c("Minutes"), all=TRUE)
+      #tdop_code_counts = combined[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
+      #tdop_code_counts$Percentage = 100*tdop_code_counts$Code_Count/length(unique(combined$Minutes))
+      return(tdop_beri_combined)
+      
+      # tdop_code_counts = tdop[, list(Code_Count=.N), by=list(get(facet_factor), Code, Short_Code, Code_Name, code_type_count)]
+      # tdop_code_counts = setnames(tdop_code_counts, 'get', 'facet_factor') # rename 'get' column
+      # tdop_code_counts$N_TimePeriods = length(unique(tdop$Minutes))
+      # #tdop_code_counts$Percentage = 100*tdop_code_counts$Code_Count/length(unique(tdop$Minutes))
+      # tdop_code_counts$filename = tdop$filename[1]
+      # #if(!is.null(tdop$enrollment[1])){
+      # #  tdop_code_counts$enrollment = tdop$enrollment[1]
+      # #}else{
+      # #  tdop_code_counts$enrollment = NA
+      # #}
+      # return(tdop_code_counts)
+    }
+    
+    plot_tdop_beri_activities_percentage_time_agg = function(tdop_beri_agg, use_color=T) {
+      
+      subtitle = tdop_beri_agg$filename[1]
+      
+      if(use_color) {
+        low_color = copus_beri_heatmap_low_color
+        high_color = copus_beri_heatmap_high_color
+      }else{
+        low_color = "white"
+        high_color = "black"
+      }
+      
+      gg_activities_bar <-(ggplot(data=tdop_beri_agg, aes(x=reorder(Short_Code, Percentage), y=Percentage, fill=mean_engaged_count)) +
+                             geom_bar(stat="identity", color="black") +
+                             #scale_fill_discrete(guide=FALSE) +
+                             #scale_fill_gradient(low="red", high="steelblue") +
+                             #scale_fill_gradient(low=low_color,high=high_color, name='Number Engaged (avg)') +
+                             scale_fill_gradient(limits=c(min(minimum_heatmap_lowerbound, min(tdop_beri_agg$mean_engaged_count)), max(tdop_beri_agg$mean_engaged_count)), low=low_color,high=high_color, name='Number Engaged (avg)') +
+                             facet_wrap(~facet_factor, ncol=1, scales="free_y") +
+                             theme(legend.position = "bottom")) +
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + #removes gridlines
+        coord_flip() +
+        theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
+        ggtitle("Activity as a Percentage of Total Class Time", subtitle=subtitle) +
+        labs(x="", y="Percentage of Total Class Time")  +
+        #theme(legend.position = "none") +
+        geom_text(aes(y = Percentage + 3.0,    # nudge above top of bar (between about 3.0 and 4.0)
+                      label = paste0(round(Percentage, digits=0), '%')),    # prettify
+                  position = position_dodge(width = .9),
+                  size = 5)
+      #gg_activities_bar
+      
+      g1 = ggplotGrob(gg_activities_bar) 
+      
+      adjust_panel_heights = T
+      if(adjust_panel_heights){
+        
+        # From 'df', get the number of unique codes  for each Category (facet)'.
+        # That is, the number y-breaks in each panel.
+        N = dlply(tdop_beri_agg, .(facet_factor), function(x) length(unique(x$Short_Code)))
+        
+        # Get the items in the g1 layout corresponding to the panels.
+        panels1 <- g1$layout$t[grepl("panel", g1$layout$name)]
+        
+        # Replace the default panel heights with relative heights
+        g1$heights[panels1] <- unit(N, "null")
+      }
+      
+      #return(g1)
+      grid.newpage()
+      grid.draw(g1)
+    }
+    
+    tdop_beri_combined = mapply(aggregate_tdop_beri_observations, tdop, beri, SIMPLIFY=F)
+    tdop_beri_combined_bound = rbindlist(tdop_beri_combined)
+    tdop_beri_agg = tdop_beri_combined_bound[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Short_Code, Code, get(facet_factor), Code_Name)]
+    tdop_beri_agg = setnames(tdop_beri_agg, 'get', 'facet_factor') #rename column
+    tdop_beri_agg$Percentage = 100*tdop_beri_agg$Code_Count/nrow(unique(tdop_beri_combined_bound[,c("Minutes", "filename")]))
+    tdop_beri_agg$filename = paste0('Averaged across ', length(tdop_beri_combined), ' classroom observations')
+    plot_tdop_beri_activities_percentage_time_agg(tdop_beri_agg)
+    
+    # #plot average across observations. # The following note is outdated, because now all 2-min time periods are weighted equally: Note: Percentages are averaged over number of classroom observations, weighting each observation equally (as opposed to greater weighting for observations with more 2-min time periods)
+    # tdop_code_counts = lapply(tdop, aggregate_tdop_observations, facet_factor=facet_factor)
+    # tdop_code_counts_bound = rbindlist(tdop_code_counts)
+    # #tdop_code_counts_agg = tdop_code_counts_bound[, list(Percentage=round(sum(Percentage)/length(tdop_code_counts)), 0), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
+    # tdop_code_counts_agg = tdop_code_counts_bound[, list(Code_Count=sum(Code_Count), 0), by=list(Code, facet_factor, Short_Code, Code_Name, code_type_count)]
+    # tdop_code_counts_agg$Percentage = 100*tdop_code_counts_agg$Code_Count / sum(unique(tdop_code_counts_bound[,c("N_TimePeriods", "filename")])$N_TimePeriods)
+    # tdop_code_counts_agg$filename = paste0('Averaged across ', length(tdop_code_counts), ' classroom observations')
+    # gg_tdop_agg = plot_tdop_activities_percentage_time(tdop_code_counts_agg)
+    # #gg_tdop_agg
+  }
   
   
   
