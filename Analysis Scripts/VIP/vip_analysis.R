@@ -9,10 +9,12 @@
 
 # Set the instructor_directory variable below to the location of the instructor's data folder on your computer.
 # Within the instructor's folder, put BERI and COPUS observation .csv's in sub folders called BERI and COPUS.
-#instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Janet Casagrand' ### MODIFY
-instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Shane Schwikert' ### MODIFY
-#instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Leilani Arthurs' ### MODIFY
-
+#instructor_directory =  '~/Google Drive/ASSETT/VIP Service/COPUS Data_Visuals_Reports/Spring 2019/Jingchung Li' ### MODIFY
+#instructor_directory =  '~/Google Drive/OIT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Shane Schwikert' ### MODIFY
+#instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Shane Schwikert' ### MODIFY
+#instructor_directory =  '~/Google Drive/OIT/VIP Service/BERI & COPUS Data_Visuals_Reports/Spring 2019/Leilani Arthurs' ### MODIFY
+#instructor_directory = '~/Google Drive/ASSETT/VIP Service/COPUS & TDOP/Spring 2019/David Paradis'
+instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Tyler Denton' ### MODIFY
 
 # Set parameters (default is figures_to_pdf = TRUE, verbose = FALSE, enforce_completeness = TRUE, x_axis_text_size = 12, y_axis_text_size = 12)
 figures_to_pdf = TRUE  # TRUE means send all the figures to a pdf within the instructor_directory specified above. 
@@ -31,12 +33,12 @@ copus_codes_file = "copus_codes.csv"  # copus_codes.csv means use COPUS codes
                                       # copul_codes.csv means use COPUL codes
 
 # Heatmap and timeline colors and settings
+minimum_heatmap_lowerbound = 7  # can be used to expand or contract heatmap color range. Default of 10 auto-sets range based on the min count of engagment in the data 
 copus_beri_heatmap_low_color = 'beige'; copus_beri_heatmap_high_color = 'red'
 beri_heatmap_low_color = '#00BFC4'; beri_heatmap_high_color = '#F8766D'  # low color is for disengaged panel; high color is for engaged panel. 
-minimum_heatmap_lowerbound = 10  # can be used to expand or contract heatmap color range. Default of 10 auto-sets range based on the min count of engagment in the data 
 
 # TDOP panel/facet grouping level
-facet_factor = 'Category' # Subcategory or Category. Default is Subcategory
+facet_factor = 'Category' # Subcategory or Category. 
 
 
 #{
@@ -53,6 +55,7 @@ project_dir = here::here() # save the project's root directory, in order to load
 
 
 #generate_plots = function(instructor_directory, show_subtitles=T, verbose=F, figures_to_pdf=T) { #put the whole script into this function, so it can be called in one line at the end
+  
   #--------------------------------- Import classroom observation data ---------------------------------
   
   show_subtitles = TRUE # parameter that determines whether figure subtitles are shown, default is show_subtitles = TRUE
@@ -61,44 +64,69 @@ project_dir = here::here() # save the project's root directory, in order to load
   theme_set(theme_grey(base_size = 18))
   options(warn=1) #print warnings as they arise
   
-  #check if BERI and/or COPUS data folders exist and which visuals should be created
-  if(dir.exists(file.path(instructor_directory,"BERI")) & dir.exists(file.path(instructor_directory,"COPUS"))){
-    protocol = 'BERI_COPUS'
+  #check if BERI and/or COPUS and/or TDOP data folders exist and which visuals should be created
+  run_beri = F
+  run_copus = F
+  run_tdop = F
+  if(dir.exists(file.path(instructor_directory,"BERI"))){
     run_beri = T
-    run_copus = T
-    run_tdop = F
-    message('Creating BERI and COPUS visuals.')
-  }else if(dir.exists(file.path(instructor_directory,"BERI")) & dir.exists(file.path(instructor_directory,"TDOP"))){
-    protocol = 'BERI_TDOP'
-    run_beri = T
-    run_copus = F
-    run_tdop = T
-    message('Creating BERI and TDOP visuals.')
-  }else if(dir.exists(file.path(instructor_directory,"BERI"))){
-    protocol = 'BERI'
-    run_beri = T
-    run_copus = F
-    run_tdop = F
-    message("Creating BERI visuals only. No COPUS folder exists in working directory.")
-  }else if(dir.exists(file.path(instructor_directory,"COPUS"))){
-    protocol = "COPUS"
-    run_beri = F
-    run_copus = T
-    run_tdop = F
-    message("Creating COPUS visuals only. No BERI folder exists in working directory.")
-  }else if(dir.exists(file.path(instructor_directory,"TDOP"))){
-    protocol = "TDOP"
-    run_beri = F
-    run_copus = F
-    run_tdop = T
-    message("Creating TDOP visuals only. No BERI folder exists in working directory.")
-  }else{
-    protocol = NA
-    run_beri = F
-    run_copus = F
-    run_tdop = F
-    stop("No BERI or COPUS data folders exist in working directory. No visuals created.")
+    message('Creating BERI visuals.')
   }
+  if(dir.exists(file.path(instructor_directory,"COPUS"))){
+    run_copus = T
+    message('Creating COPUS visuals.')
+  }
+  if(dir.exists(file.path(instructor_directory,"TDOP"))){
+    run_tdop = T
+    message('Creating TDOP visuals.')
+  }
+  if(!(run_beri | run_copus | run_tdop)){
+    stop("No BERI, COPUS, or TDOP data folders exist in working directory. No visuals created.")
+  }
+  
+  # if(dir.exists(file.path(instructor_directory,"BERI")) & dir.exists(file.path(instructor_directory,"COPUS"))){
+  #   protocol = 'BERI_COPUS'
+  #   run_beri = T
+  #   run_copus = T
+  #   run_tdop = F
+  #   message('Creating BERI and COPUS visuals.')
+  # }else if(dir.exists(file.path(instructor_directory,"BERI")) & dir.exists(file.path(instructor_directory,"TDOP"))){
+  #   protocol = 'BERI_TDOP'
+  #   run_beri = T
+  #   run_copus = F
+  #   run_tdop = T
+  #   message('Creating BERI and TDOP visuals.')
+  # }else if(dir.exists(file.path(instructor_directory,"BERI")) & dir.exists(file.path(instructor_directory,"TDOP"))){
+  #   protocol = 'BERI_TDOP'
+  #   run_beri = T
+  #   run_copus = F
+  #   run_tdop = T
+  #   message('Creating BERI and TDOP visuals.')
+  # }else if(dir.exists(file.path(instructor_directory,"BERI"))){
+  #   protocol = 'BERI'
+  #   run_beri = T
+  #   run_copus = F
+  #   run_tdop = F
+  #   message("Creating BERI visuals only. No COPUS folder exists in working directory.")
+  # }else if(dir.exists(file.path(instructor_directory,"COPUS"))){
+  #   protocol = "COPUS"
+  #   run_beri = F
+  #   run_copus = T
+  #   run_tdop = F
+  #   message("Creating COPUS visuals only. No BERI folder exists in working directory.")
+  # }else if(dir.exists(file.path(instructor_directory,"TDOP"))){
+  #   protocol = "TDOP"
+  #   run_beri = F
+  #   run_copus = F
+  #   run_tdop = T
+  #   message("Creating TDOP visuals only. No BERI folder exists in working directory.")
+  # }else{
+  #   protocol = NA
+  #   run_beri = F
+  #   run_copus = F
+  #   run_tdop = F
+  #   stop("No BERI, COPUS, or TDOP data folders exist in working directory. No visuals created.")
+  # }
   
   #define helper function read_plus to load files with extra filename column
   read_plus = function(flnm, header=T) {
@@ -220,7 +248,7 @@ project_dir = here::here() # save the project's root directory, in order to load
   # note: last interval of observation has variable Time.End, and is currently excluded from analysis
   # note: Notes also have variable Time.End, and are currently excluded from analysis
   # note: Also filter out any rows that are missing Time.End
-  filter_deselected_events = function(df, required_number_of_codes_per_interval, verbose) {
+  filter_deselected_events = function(df, protocol, required_number_of_codes_per_interval, verbose) {
     if(verbose) print(paste("filtering deselected events for file:", df$filename_long[1]))
     if(second(strptime(df$Time.End,format="%I:%M:%S %p"))[1] != 0) {
       stop(paste0("First row is not an even minute multiple in file: ", df$filename_long[1]))
@@ -249,10 +277,10 @@ project_dir = here::here() # save the project's root directory, in order to load
       posix_time.ends = as.POSIXct(df$Time.End, format="%I:%M:%S %p")
       if(sum(posix_time.ends==interval)==0) {
         if(enforce_completeness){
-          stop(paste(df$filename_long[1],"is missing all datapoints for interval Time.End =", format(interval, format="%H:%M:%S")))
+          stop(paste(df$filename_long[1], protocol, "is missing all datapoints for interval Time.End =", format(interval, format="%H:%M:%S")))
         }
       }else if(sum(posix_time.ends==interval)<required_number_of_codes_per_interval){
-        warning(paste(df$filename_long[1],"is missing", as.character(required_number_of_codes_per_interval-sum(posix_time.ends==interval)), "datapoints for interval Time.End =", format(interval, format="%H:%M:%S")))
+        warning(paste0(df$filename_long[1], " (", protocol, ") is missing ", as.character(required_number_of_codes_per_interval-sum(posix_time.ends==interval)), "/", as.character(required_number_of_codes_per_interval), " datapoints for interval Time.End = ", format(interval, format="%H:%M:%S")))
       }
     }
     #1 for odd minutes
@@ -263,9 +291,9 @@ project_dir = here::here() # save the project's root directory, in order to load
     return(df)
   }
   
-  if(run_copus) D_copus = lapply(D_copus, filter_deselected_events, required_number_of_codes_per_interval=2, verbose)
-  if(run_beri) D_beri = lapply(D_beri, filter_deselected_events, required_number_of_codes_per_interval=10, verbose)
-  if(run_tdop) D_tdop = lapply(D_tdop, filter_deselected_events, required_number_of_codes_per_interval=1, verbose)
+  if(run_copus) D_copus = lapply(D_copus, filter_deselected_events, 'COPUS', required_number_of_codes_per_interval=2, verbose)
+  if(run_beri) D_beri = lapply(D_beri, filter_deselected_events, 'BERI', required_number_of_codes_per_interval=10, verbose)
+  if(run_tdop) D_tdop = lapply(D_tdop, filter_deselected_events, 'TDOP', required_number_of_codes_per_interval=1, verbose)
   
   # Find common start and end times
   filter_nonintersecting_times = function(df_beri, df_copus_or_tdop) {
@@ -442,7 +470,8 @@ project_dir = here::here() # save the project's root directory, in order to load
       }
       
       #theme_set(theme_bw()) # Change the theme to my preference
-      gg_beri = ggplot(aes(x = Minutes, y = engaged_count), data = engaged_counts) + geom_line() +
+      gg_beri = ggplot(aes(x = Minutes, y = engaged_count), data = engaged_counts) + 
+        geom_line() +
         #ggtitle("Count of Engaged Students (BERI)") +
         #labs(x="Minutes",y="Number of Engaged Students")
         theme(plot.title = element_text(hjust = 0.5), plot.subtitle=element_text(hjust = 0.5)) +
@@ -706,6 +735,9 @@ project_dir = here::here() # save the project's root directory, in order to load
     #mapply(plot_beri_line_and_timecourse_heatmap, gg_beri, gg_beri_timecourse)
   }
   
+  
+  
+  
   #--------------------------------- Create BERI code by time plot (separate plots for engaged vs. disengaged) ---------------------------------
   if(run_beri){
     plot_beri_timecourse = function(beri, use_color=T) {
@@ -774,6 +806,9 @@ project_dir = here::here() # save the project's root directory, in order to load
                            #theme(panel.spacing=unit(.1,'lines')) +
                            theme(legend.position = "bottom", legend.key.width=unit(3,"cm")))
       #gg_beri_disengaged
+      if(nrow(beri_disengaged) == 0){ 
+        gg_beri_disengaged = NA
+      }
       
       gg_beri_timecourse = list(gg_beri_engaged, gg_beri_disengaged)
       
@@ -794,7 +829,11 @@ project_dir = here::here() # save the project's root directory, in order to load
     plot_beri_line_and_timecourse_heatmap = function(gg_beri, gg_beri_timecourse) {
       grid.newpage()
       #grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse[1]), ggplotGrob(gg_beri_timecourse[2]), size = "last"))
-      grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse[[1]]), ggplotGrob(gg_beri_timecourse[[2]]), size = "last"))
+      if(length(gg_beri_timecourse[[2]])>1){ # checking to make sure there was actually disengaged behavior. if there wasn't, don't try to plot the disengaged behavior.
+        grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse[[1]]), ggplotGrob(gg_beri_timecourse[[2]]), size = "last"))
+      }else{
+        grid.draw(rbind(ggplotGrob(gg_beri), ggplotGrob(gg_beri_timecourse[[1]]), size = "last"))
+      }
     }
     mapply(plot_beri_line_and_timecourse_heatmap, gg_beri, gg_beri_timecourse)
   }
@@ -1335,21 +1374,7 @@ project_dir = here::here() # save the project's root directory, in order to load
       engaged_counts$Minutes = seq(0,2*(nrow(engaged_counts)-1),2)
       
       tdop_beri_combined = merge(tdop, engaged_counts, by=c("Minutes"), all=TRUE)
-      #tdop_code_counts = combined[, list(Code_Count=.N, mean_engaged_count=mean(engaged_count)), by=list(Event, Instructor_Student_Factor, Code_Name)]
-      #tdop_code_counts$Percentage = 100*tdop_code_counts$Code_Count/length(unique(combined$Minutes))
       return(tdop_beri_combined)
-      
-      # tdop_code_counts = tdop[, list(Code_Count=.N), by=list(get(facet_factor), Code, Short_Code, Code_Name, code_type_count)]
-      # tdop_code_counts = setnames(tdop_code_counts, 'get', 'facet_factor') # rename 'get' column
-      # tdop_code_counts$N_TimePeriods = length(unique(tdop$Minutes))
-      # #tdop_code_counts$Percentage = 100*tdop_code_counts$Code_Count/length(unique(tdop$Minutes))
-      # tdop_code_counts$filename = tdop$filename[1]
-      # #if(!is.null(tdop$enrollment[1])){
-      # #  tdop_code_counts$enrollment = tdop$enrollment[1]
-      # #}else{
-      # #  tdop_code_counts$enrollment = NA
-      # #}
-      # return(tdop_code_counts)
     }
     
     plot_tdop_beri_activities_percentage_time_agg = function(tdop_beri_agg, use_color=T) {
@@ -1412,20 +1437,7 @@ project_dir = here::here() # save the project's root directory, in order to load
     tdop_beri_agg$Percentage = 100*tdop_beri_agg$Code_Count/nrow(unique(tdop_beri_combined_bound[,c("Minutes", "filename")]))
     tdop_beri_agg$filename = paste0('Averaged across ', length(tdop_beri_combined), ' classroom observations')
     plot_tdop_beri_activities_percentage_time_agg(tdop_beri_agg)
-    
-    # #plot average across observations. # The following note is outdated, because now all 2-min time periods are weighted equally: Note: Percentages are averaged over number of classroom observations, weighting each observation equally (as opposed to greater weighting for observations with more 2-min time periods)
-    # tdop_code_counts = lapply(tdop, aggregate_tdop_observations, facet_factor=facet_factor)
-    # tdop_code_counts_bound = rbindlist(tdop_code_counts)
-    # #tdop_code_counts_agg = tdop_code_counts_bound[, list(Percentage=round(sum(Percentage)/length(tdop_code_counts)), 0), by=list(Event, Instructor_Student_Factor, Code_Name, code_type_count)]
-    # tdop_code_counts_agg = tdop_code_counts_bound[, list(Code_Count=sum(Code_Count), 0), by=list(Code, facet_factor, Short_Code, Code_Name, code_type_count)]
-    # tdop_code_counts_agg$Percentage = 100*tdop_code_counts_agg$Code_Count / sum(unique(tdop_code_counts_bound[,c("N_TimePeriods", "filename")])$N_TimePeriods)
-    # tdop_code_counts_agg$filename = paste0('Averaged across ', length(tdop_code_counts), ' classroom observations')
-    # gg_tdop_agg = plot_tdop_activities_percentage_time(tdop_code_counts_agg)
-    # #gg_tdop_agg
   }
-  
-  
-  
   
   
   
@@ -1438,3 +1450,5 @@ project_dir = here::here() # save the project's root directory, in order to load
 
 #generate_plots(instructor_directory)
 #}
+
+  

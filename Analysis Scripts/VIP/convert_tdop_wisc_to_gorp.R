@@ -4,16 +4,18 @@ library(plyr)
 library(grid)
 library(data.table)
 
-instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Shane Schwikert' ### MODIFY
+instructor_directory =  '~/Google Drive/ASSETT/VIP Service/BERI & TDOP Data_Visuals_Reports/Spring 2019/Tyler Denton' ### MODIFY
+#instructor_directory = '~/Google Drive/ASSETT/VIP Service/COPUS & TDOP/Spring 2019/David Paradis'
 
-# standard params
-show_subtitles = T
-verbose = F
-figures_to_pdf = F
+# define list of start times, observation dates, and course names for each observation
+start_times = list("10:06:00 AM", "10:06:00 AM", "10:06:00 AM")
+observation_dates = list("2019-03-21", "2019-04-25", "2019-05-02")
+course_names = rep(list("Intermediate Latin 1"), 3)
 
-project_dir = here::here() # save the project's root directory, in order to load helper files (copus_codes.csv and beri_codes.csv)
+
 
 #--------------------------------- Convert TDOP data from Wisconsin's interface to GORP-style row-wise data  ---------------------------------
+project_dir = here::here() # save the project's root directory, in order to load helper files (copus_codes.csv and beri_codes.csv)
 
 #extract date, course name, instructor, and observer from filename
 course = NULL
@@ -36,7 +38,7 @@ if(run_tdop){
   tdop_filenames <- list.files(tdop_dir, pattern="*.csv", full.names=TRUE)
   D_tdop = lapply(tdop_filenames, read.csv) # keep each classroom observation in its own df
   D_tdop = lapply(D_tdop, data.table)
-  D_tdop = lapply(D_tdop, function(D){D[, !"X"]})  # drop weird "X" column of NAs
+  D_tdop = lapply(D_tdop, function(D){D[, !"X"]})  # drop weird "X" column of NAs, if it exists. Not an issue if error thrown here
   #D_tdop = lapply(D_tdop, extract_observation_metadata)
 }
 
@@ -90,14 +92,7 @@ convert_wisconsic_data_to_gorp_data = function(D, start_time, observation_date, 
   
   return(D_long)
 }
-
-# define list of start times, observation dates, and course names for each observation
-start_times = list("3:32:00 PM", "3:36:00 PM", "3:36:00 PM")
-observation_dates = list("2019-04-09", "2019-04-11", "2019-04-25")
-course_names = list("Intro to Cognitive Psychology", "Intro to Cognitive Psychology", "Intro to Cognitive Psychology")
 tdop = mapply(convert_wisconsic_data_to_gorp_data, D_tdop, start_times, observation_dates, course_names, SIMPLIFY = FALSE)
-
-
 
 write_tdop_to_file = function(D){
   date = D$Date[[1]]

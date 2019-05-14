@@ -5,9 +5,11 @@ Engaged student interaction,E. Student Int,E:_Stud_Int,1
 Listening,Listen,Listen,1
 Reading,Read,Read,1
 Writing,Write,Write,1
+Engaged other,E. Other,E:_Other,1
 Disengaged computer use,D. Computer,D:_Comp,0
 Disengaged student interaction,D. Student Int,D:_Stud_Int,0
 Distracted by another student,Distracted,Distract,0
 Off-task,Off-task,Off,0
 Settling in / packing up,Settle/Pack,"Settle,_Pack",0
 Unresponsive,Unresponsive,Unresp,0
+Disengaged other,D. Other,D:_Other,0

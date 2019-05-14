@@ -1,45 +1,46 @@
-Code_Name,Short_Code,Event,Code,Category,Subcategory
-Lecturing,Lecturing,L,L,Teaching Methods,Teacher-focused instruction
-Lecturing while writing,Lecturing + Writing,LW,LW,Teaching Methods,Teacher-focused instruction
-Lecturing from pre-made visuals,Lecturing + Visuals,LVIS,LVIS,Teaching Methods,Teacher-focused instruction
-Lecturing with demonstration of phenomena,Lecturing + Demo,LDEM,LDEM,Teaching Methods,Teacher-focused instruction
-Socratic lecture,Socratic,SOC-L,SOC-L,Teaching Methods,Teacher-focused instruction
-Working out problems,Working out problems,WP,WP,Teaching Methods,Teacher-focused instruction
-Individualized instruction,Individualized Instruction,IND,IND,Teaching Methods,Teacher-focused instruction
-Multimedia,Multimedia,MM,MM,Teaching Methods,Teacher-focused instruction
-Assessment,Assessment,A,A,Teaching Methods,Teacher-focused instruction
-Administrative task,Administrative,AT,AT,Teaching Methods,Teacher-focused instruction
-Small group work/discussion,Small groups,SGW,SGW,Teaching Methods,Student-focused instruction
-Deskwork,Deskwork,DW,DW,Teaching Methods,Student-focused instruction
-Student presentation,Student presentation,SP,SP,Teaching Methods,Student-focused instruction
-Instructor rhetorical question,Instr rhetorical Q,IRQ,IRQ,Student-Teacher Dialogue,Teacher-led dialogue
-Instructor display question,Instr display Q,IDQ,IDQ,Student-Teacher Dialogue,Teacher-led dialogue
-Instructor comprehension question,Instr comprehension Q,ICQ,ICQ,Student-Teacher Dialogue,Teacher-led dialogue
-Student question,Student Q,SQ,SQ,Student-Teacher Dialogue,Student-led dialogue
-Student reponse to teacher question,Student response to Q,SR,SR,Student-Teacher Dialogue,Student-led dialogue
-Peer interactions,Peer interactions,PI,PI,Student-Teacher Dialogue,Student-led dialogue
-Chalkboard/whiteboard/Smart Board,Whiteboard,CB,CB,Instructional Technology,Instructional Technology
-Overhead projector/transparancies,Projector,OP,OP,Instructional Technology,Instructional Technology
-Powerpoint or other digital slides,Powerpoint,PP ,PP ,Instructional Technology,Instructional Technology
-Clicker reponse systems,Clicker,CL,CL,Instructional Technology,Instructional Technology
-Demonstration equipment,Demonstration,D,D,Instructional Technology,Instructional Technology
-Digital tablet,Tablet,DT,DT,Instructional Technology,Instructional Technology
-"Movie, documentary, video clips, or Youtube video",Movie,M,M,Instructional Technology,Instructional Technology
-Simulation,Simulation,SI,SI,Instructional Technology,Instructional Technology
-Website,Website,WEB,WEB,Instructional Technology,Instructional Technology
-Making connections to own lives/specific cases,Making connections,CNL,CNL,Potential Student Cognitive Engagement,Potential Student Cognitive Engagement
-Problem solving,Problem solving,PS,PS,Potential Student Cognitive Engagement,Potential Student Cognitive Engagement
-Creating,Creating,CR,CR,Potential Student Cognitive Engagement,Potential Student Cognitive Engagement
-Humor,Humor,HUM,HUM,Pedagogical Strategies,Pedagogical Strategies
-Anecdote/example,Anecdote,ANEX,ANEX,Pedagogical Strategies,Pedagogical Strategies
-Organization,Organization,ORG,ORG,Pedagogical Strategies,Pedagogical Strategies
-Emphasis,Emphasis,EMP,EMP,Pedagogical Strategies,Pedagogical Strategies
-Very high,Very high,VHI,VHI,Student Engagement,Student Engagement
-High,High,HI,HI,Student Engagement,Student Engagement
-Medium,Medium,MED,MED,Student Engagement,Student Engagement
-Low,Low,LO,LO,Student Engagement,Student Engagement
-21st Century Skills,21st Century Skills,SSI,SSI,21st Century Skills,21st Century Skills
-21st Century Skills,21st Century Skills,CSI-O,CSI-O,21st Century Skills,21st Century Skills
-21st Century Skills,21st Century Skills,CSI-W,CSI-W,21st Century Skills,21st Century Skills
-21st Century Skills,21st Century Skills,TWI,TWI,21st Century Skills,21st Century Skills
-21st Century Skills,21st Century Skills,PSI,PSI,21st Century Skills,21st Century Skills
+Code_Name,Short_Code,Event,Code,Category,Subcategory,TriGrouping
+Lecturing,Lecturing,L,L,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Lecturing while writing,Lecturing + Writing,LW,LW,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Lecturing from pre-made visuals,Lecturing + Visuals,LVIS,LVIS,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Lecturing with demonstration of phenomena,Lecturing + Demo,LDEM,LDEM,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Socratic lecture,Socratic,SOC-L,SOC-L,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Socratic lecture,Socratic,SOC.L,SOC.L,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Working out problems,Working out problems,WP,WP,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Individualized instruction,Individualized Instruction,IND,IND,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Multimedia,Multimedia,MM,MM,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Assessment,Assessment,A,A,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Administrative task,Administrative,AT,AT,Teaching Methods,Teacher-focused instruction,Teaching Methods
+Small group work/discussion,Small groups,SGW,SGW,Teaching Methods,Student-focused instruction,Teaching Methods
+Deskwork,Deskwork,DW,DW,Teaching Methods,Student-focused instruction,Teaching Methods
+Student presentation,Student presentation,SP,SP,Teaching Methods,Student-focused instruction,Teaching Methods
+Instructor rhetorical question,Instr rhetorical Q,IRQ,IRQ,Student-Teacher Dialogue,Teacher-led dialogue,Student-Teacher Dialogue
+Instructor display question,Instr display Q,IDQ,IDQ,Student-Teacher Dialogue,Teacher-led dialogue,Student-Teacher Dialogue
+Instructor comprehension question,Instr comprehension Q,ICQ,ICQ,Student-Teacher Dialogue,Teacher-led dialogue,Student-Teacher Dialogue
+Student question,Student Q,SQ,SQ,Student-Teacher Dialogue,Student-led dialogue,Student-Teacher Dialogue
+Student reponse to teacher question,Student response to Q,SR,SR,Student-Teacher Dialogue,Student-led dialogue,Student-Teacher Dialogue
+Peer interactions,Peer interactions,PI,PI,Student-Teacher Dialogue,Student-led dialogue,Student-Teacher Dialogue
+Chalkboard/whiteboard/Smart Board,Whiteboard,CB,CB,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Overhead projector/transparancies,Projector,OP,OP,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Powerpoint or other digital slides,Powerpoint,PP,PP,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Clicker reponse systems,Clicker,CL,CL,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Demonstration equipment,Demonstration,D,D,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Digital tablet,Tablet,DT,DT,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+"Movie, documentary, video clips, or Youtube video",Movie,M,M,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Simulation,Simulation,SI,SI,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Website,Website,WEB,WEB,Instructional Technology,Instructional Technology,Pegagogical Strategies and Tools
+Making connections to own lives/specific cases,Making connections,CNL,CNL,Potential Student Cognitive Engagement,Potential Student Cognitive Engagement,Pegagogical Strategies and Tools
+Problem solving,Problem solving,PS,PS,Potential Student Cognitive Engagement,Potential Student Cognitive Engagement,Pegagogical Strategies and Tools
+Creating,Creating,CR,CR,Potential Student Cognitive Engagement,Potential Student Cognitive Engagement,Pegagogical Strategies and Tools
+Humor,Humor,HUM,HUM,Pedagogical Strategies,Pedagogical Strategies,Pegagogical Strategies and Tools
+Anecdote/example,Anecdote,ANEX,ANEX,Pedagogical Strategies,Pedagogical Strategies,Pegagogical Strategies and Tools
+Organization,Organization,ORG,ORG,Pedagogical Strategies,Pedagogical Strategies,Pegagogical Strategies and Tools
+Emphasis,Emphasis,EMP,EMP,Pedagogical Strategies,Pedagogical Strategies,Pegagogical Strategies and Tools
+Very high,Very high,VHI,VHI,Student Engagement,Student Engagement,Pegagogical Strategies and Tools
+High,High,HI,HI,Student Engagement,Student Engagement,Pegagogical Strategies and Tools
+Medium,Medium,MED,MED,Student Engagement,Student Engagement,Pegagogical Strategies and Tools
+Low,Low,LO,LO,Student Engagement,Student Engagement,Pegagogical Strategies and Tools
+21st Century Skills,21st Century Skills,SSI,SSI,21st Century Skills,21st Century Skills,Pegagogical Strategies and Tools
+21st Century Skills,21st Century Skills,CSI-O,CSI-O,21st Century Skills,21st Century Skills,Pegagogical Strategies and Tools
+21st Century Skills,21st Century Skills,CSI-W,CSI-W,21st Century Skills,21st Century Skills,Pegagogical Strategies and Tools
+21st Century Skills,21st Century Skills,TWI,TWI,21st Century Skills,21st Century Skills,Pegagogical Strategies and Tools
+21st Century Skills,21st Century Skills,PSI,PSI,21st Century Skills,21st Century Skills,Pegagogical Strategies and Tools
